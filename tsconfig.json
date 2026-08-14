@@ -3,6 +3,14 @@
     "./react-app/**/*.ts",
     "test"
   ],
+  "exclude": [
+    "./react-app/**/*.test.ts",
+    "./react-app/src/library/test-utils.ts",
+    "./react-app/src/library/services/vendor-implementations/jabra/mock-jabra-sdk.ts",
+    "./react-app/src/library/services/vendor-implementations/plantronics/plantronics-test-responses.ts",
+    "./react-app/src/mocks/**",
+    "./react-app/src/setupTests.ts"
+  ],
   "compilerOptions": {
     /* Basic Options */
     "target": "es6", /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', 'ES2018', 'ES2019' or 'ESNEXT'. */

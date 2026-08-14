@@ -165,18 +165,26 @@ describe('SennheiserService', () => {
       sennheiserService.websocket = createMockWebSocket();
     });
     
-    it('should not call _sendMessage if the service is not connected', async () => {
-      sennheiserService.isConnected = false;
-      jest.spyOn(sennheiserService, '_sendMessage');
+    it('should close a connecting socket and reset connection state', async () => {
+      const socket = sennheiserService.websocket;
+      (socket as any).readyState = WebSocket.CONNECTING;
+      socket.close = jest.fn();
+      sennheiserService.isConnecting = true;
 
       await sennheiserService.disconnect();
 
-      expect(sennheiserService._sendMessage).not.toHaveBeenCalled();
+      expect(socket.close).toHaveBeenCalledTimes(1);
+      expect(sennheiserService.websocket).toBeNull();
+      expect(sennheiserService.isConnecting).toBe(false);
+      expect(sennheiserService.isConnected).toBe(false);
     });
 
-    it('should call _sendMessage with the correct payload when the service is connected', async () => {
+    it('should terminate and close an open connected socket', async () => {
+      const socket = sennheiserService.websocket;
+      (socket as any).readyState = WebSocket.OPEN;
+      socket.send = jest.fn();
+      socket.close = jest.fn();
       sennheiserService.isConnected = true;
-      jest.spyOn(sennheiserService, '_sendMessage');
       const expectedPayload: SennheiserPayload = {
         Event: SennheiserEvents.TerminateConnection,
         EventType: SennheiserEventTypes.Request,
@@ -184,7 +192,72 @@ describe('SennheiserService', () => {
 
       await sennheiserService.disconnect();
 
-      expect(sennheiserService._sendMessage).toHaveBeenCalledWith(expectedPayload);
+      expect(socket.send).toHaveBeenCalledWith(JSON.stringify(expectedPayload));
+      expect(socket.close).toHaveBeenCalledTimes(1);
+      expect(sennheiserService.websocket).toBeNull();
+      expect(sennheiserService.isConnected).toBe(false);
+    });
+
+    it('should still close an open socket when sending termination fails', async () => {
+      const socket = sennheiserService.websocket;
+      (socket as any).readyState = WebSocket.OPEN;
+      socket.send = jest.fn(() => { throw new Error('send failed'); });
+      socket.close = jest.fn();
+      const warn = jest.spyOn(mockLogger, 'warn');
+
+      await sennheiserService.disconnect();
+
+      expect(socket.close).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith('Failed to send sennheiser termination message before closing');
+    });
+
+    it('should finish resetting state when closing the socket throws', async () => {
+      const socket = sennheiserService.websocket;
+      (socket as any).readyState = WebSocket.CONNECTING;
+      socket.close = jest.fn(() => { throw new Error('close failed'); });
+      const warn = jest.spyOn(mockLogger, 'warn');
+      sennheiserService.isConnecting = true;
+
+      await sennheiserService.disconnect();
+
+      expect(sennheiserService.websocket).toBeNull();
+      expect(sennheiserService.isConnecting).toBe(false);
+      expect(warn).toHaveBeenCalledWith('Failed to close sennheiser websocket');
+    });
+
+    it('should be idempotent when no socket is active', async () => {
+      sennheiserService.websocket = null;
+      await expect(sennheiserService.disconnect()).resolves.toBeUndefined();
+      await expect(sennheiserService.disconnect()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('_registerSoftphone', () => {
+    it('uses the configured application name', () => {
+      sennheiserService = SennheiserService.getInstance({
+        logger: mockLogger,
+        appName: 'florence-telecom-console',
+        createNew: true
+      });
+      sennheiserService.websocket = createMockWebSocket() as WebSocket;
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
+      sennheiserService.websocket.send = jest.fn();
+
+      sennheiserService._registerSoftphone();
+
+      const payload = JSON.parse((sennheiserService.websocket.send as jest.Mock).mock.calls[0][0]);
+      expect(payload.SPName).toBe('florence-telecom-console');
+    });
+
+    it('retains the legacy application-name fallback', () => {
+      sennheiserService.websocket = createMockWebSocket() as WebSocket;
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
+      sennheiserService.websocket.send = jest.fn();
+
+      sennheiserService._registerSoftphone();
+
+      const payload = JSON.parse((sennheiserService.websocket.send as jest.Mock).mock.calls[0][0]);
+      expect(payload.SPName).toBe('Genesys Cloud Softphone');
     });
   });
 
@@ -975,6 +1048,84 @@ describe('SennheiserService', () => {
       sennheiserService.websocket = null;
       sennheiserService.connect();
       expect(sennheiserService.websocket).toBeTruthy();
+    });
+
+    it('should close the previous attempt and ignore all stale socket callbacks', () => {
+      const originalWebSocket = global.WebSocket;
+      const first: any = createMockWebSocket();
+      const second: any = createMockWebSocket();
+      first.close = jest.fn();
+      second.close = jest.fn();
+      const WebSocketMock: any = jest.fn()
+        .mockReturnValueOnce(first)
+        .mockReturnValueOnce(second);
+      WebSocketMock.CONNECTING = 0;
+      WebSocketMock.OPEN = 1;
+      WebSocketMock.CLOSING = 2;
+      WebSocketMock.CLOSED = 3;
+      global.WebSocket = WebSocketMock;
+      jest.spyOn(sennheiserService, '_registerSoftphone');
+      jest.spyOn(mockLogger, 'info');
+      jest.spyOn(mockLogger, 'error');
+      (mockLogger.info as jest.Mock).mockClear();
+      (mockLogger.error as jest.Mock).mockClear();
+
+      sennheiserService.connect();
+      const staleOpen = first.onopen;
+      const staleMessage = first.onmessage;
+      const staleClose = first.onclose;
+      sennheiserService.connect();
+
+      expect(first.close).toHaveBeenCalledTimes(1);
+      expect(sennheiserService.websocket).toBe(second);
+      staleOpen();
+      staleMessage({ data: `{ "Event": "${SennheiserEvents.SocketConnected}" }` });
+      staleClose({ code: 1006, reason: 'stale', wasClean: false });
+
+      expect(sennheiserService.websocket).toBe(second);
+      expect(sennheiserService.isConnecting).toBe(true);
+      expect(sennheiserService._registerSoftphone).not.toHaveBeenCalled();
+      expect(mockLogger.info).not.toHaveBeenCalled();
+      expect(mockLogger.error).not.toHaveBeenCalled();
+      global.WebSocket = originalWebSocket;
+    });
+
+    it('should process callbacks from the current socket', () => {
+      sennheiserService.connect();
+      const socket: any = sennheiserService.websocket;
+      jest.spyOn(sennheiserService, '_registerSoftphone');
+
+      socket.onopen();
+      socket.onmessage({ data: `{ "Event": "${SennheiserEvents.SocketConnected}" }` });
+
+      expect(sennheiserService.websocketConnected).toBe(true);
+      expect(sennheiserService._registerSoftphone).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('_sendMessage', () => {
+    const payload = {
+      Event: SennheiserEvents.SystemInformation,
+      EventType: SennheiserEventTypes.Request
+    };
+
+    it('should safely no-op without an open socket', () => {
+      sennheiserService.websocket = null;
+      expect(() => sennheiserService._sendMessage(payload)).not.toThrow();
+
+      sennheiserService.websocket = createMockWebSocket() as WebSocket;
+      (sennheiserService.websocket as any).readyState = WebSocket.CONNECTING;
+      expect(() => sennheiserService._sendMessage(payload)).not.toThrow();
+    });
+
+    it('should send through the current open socket', () => {
+      sennheiserService.websocket = createMockWebSocket() as WebSocket;
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
+      sennheiserService.websocket.send = jest.fn();
+
+      sennheiserService._sendMessage(payload);
+
+      expect(sennheiserService.websocket.send).toHaveBeenCalledWith(JSON.stringify(payload));
     });
   });
 });

@@ -1,0 +1,33 @@
+export declare enum JabraNativeCommands {
+    Ring = "ringer",
+    Offhook = "offhook",
+    Mute = "mute",
+    Hold = "hold"
+}
+export interface JabraNativeHeadsetState {
+    ringing: boolean;
+    offHook: boolean;
+}
+export declare const HeadsetEvent = "JabraEvent";
+export declare const DeviceEvent = "JabraDeviceAttached";
+type HeadsetEvent = typeof HeadsetEvent;
+type DeviceEvent = typeof DeviceEvent;
+export interface JabraHeadsetEvent {
+    msg: HeadsetEvent;
+    eventName: JabraNativeEventNames;
+    value?: any;
+    hidInput: string;
+}
+export interface JabraDeviceEvent {
+    msg: DeviceEvent;
+    attached: boolean;
+    deviceId: number;
+    deviceName: string;
+}
+export declare enum JabraNativeEventNames {
+    OffHook = "OffHook",
+    Mute = "Mute",
+    Hold = "Flash",
+    RejectCall = "RejectCall"
+}
+export {};

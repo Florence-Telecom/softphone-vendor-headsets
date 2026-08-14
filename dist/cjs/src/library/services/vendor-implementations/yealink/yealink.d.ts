@@ -1,0 +1,31 @@
+import { VendorImplementation, ImplementationConfig } from "../vendor-implementation";
+import { CallInfo } from '../../..';
+import DeviceInfo from "../../../types/device-info";
+export default class YealinkService extends VendorImplementation {
+    private static instance;
+    private pendingConversationId;
+    private activeConversationId;
+    private _deviceInfo;
+    private activeDevice;
+    private callState;
+    private recCallState;
+    private isHold;
+    private inputReportReportId;
+    vendorName: string;
+    static getInstance(config: ImplementationConfig): YealinkService;
+    get deviceInfo(): DeviceInfo;
+    isSupported(): boolean;
+    deviceLabelMatchesVendor(label: string): boolean;
+    connect(originalDeviceLabel: string): Promise<void>;
+    disconnect(): Promise<void>;
+    processBtnPress(value: number): void;
+    incomingCall(callInfo: CallInfo): Promise<void>;
+    outgoingCall(callInfo: CallInfo): Promise<void>;
+    answerCall(): Promise<void>;
+    rejectCall(): Promise<void>;
+    endCall(conversationId: string, hasOtherActiveCalls: boolean): Promise<void>;
+    endAllCalls(): Promise<void>;
+    setMute(value: boolean): Promise<void>;
+    setHold(conversationId: string, value: boolean): Promise<void>;
+    sendOpToDevice(value: number): Promise<void>;
+}

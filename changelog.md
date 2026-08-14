@@ -5,6 +5,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # [Unreleased](https://github.com/purecloudlabs/softphone-vendor-headsets/compare/v2.5.6...HEAD)
 
+# [2.5.6-florence.1]
+## Fixed
+* Propagate the configured application name to EPOS/Sennheiser registration.
+* Close superseded, connecting, and connected EPOS sockets deterministically.
+* Ignore events emitted by vendor implementations that are no longer selected.
+
 # [v2.5.6](https://github.com/purecloudlabs/softphone-vendor-headsets/compare/v2.5.5...v2.5.6)
 ## Changed
 * [STREAM-484](https://inindca.atlassian.net/browse/STREAM-484) - Migrated to Jenkins webappPipelineV2.

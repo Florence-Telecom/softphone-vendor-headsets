@@ -1,6 +1,7 @@
 {
   "name": "softphone-vendor-headsets",
-  "version": "2.5.6",
+  "version": "2.5.6-florence.1",
+  "private": true,
   "author": "Genesys",
   "license": "MIT",
   "cjs": "dist/cjs/src/library/index.js",
@@ -12,7 +13,7 @@
     "dist"
   ],
   "repository": {
-    "url": "https://github.com/purecloudlabs/softphone-vendor-headsets",
+    "url": "https://github.com/Florence-Telecom/softphone-vendor-headsets",
     "type": ""
   },
   "publishConfig": {

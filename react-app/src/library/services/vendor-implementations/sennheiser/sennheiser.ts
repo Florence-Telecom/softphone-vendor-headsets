@@ -17,9 +17,10 @@ export default class SennheiserService extends VendorImplementation {
   activeDeviceId = null;
   websocketConnected = false;
 
-  websocket = null;
+  websocket: WebSocket = null;
   deviceInfo: DeviceInfo = null;
   ignoreAcknowledgement = false;
+  private connectionGeneration = 0;
 
   static getInstance (config: ImplementationConfig): SennheiserService {
     if (!SennheiserService.instance || config.createNew) {
@@ -55,6 +56,11 @@ export default class SennheiserService extends VendorImplementation {
   }
 
   _sendMessage (payload: SennheiserPayload): void {
+    if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+      this.logger.warn('Cannot send sennheiser message because the active socket is not open', { event: payload.Event });
+      return;
+    }
+
     this.logger.debug('sending sennheiser message', payload);
     this.websocket.send(JSON.stringify(payload));
   }
@@ -63,7 +69,7 @@ export default class SennheiserService extends VendorImplementation {
     const payload: SennheiserPayload = {
       Event: SennheiserEvents.EstablishConnection,
       EventType: SennheiserEventTypes.Request,
-      SPName: 'Genesys Cloud Softphone',
+      SPName: this.config.appName || 'Genesys Cloud Softphone',
       SPIconImage: 'SPImage.ico',
       RedialSupport: 'No',
       OffHookSupport: 'No',
@@ -75,25 +81,42 @@ export default class SennheiserService extends VendorImplementation {
   }
 
   connect (): Promise<void> {
+    this.retireSocket(this.websocket, this.connectionGeneration, true);
     this.ignoreAcknowledgement = false;
     !this.isConnecting && this.changeConnectionStatus({ isConnected: false, isConnecting: true });
 
     const socket = new WebSocket(websocketUri);
-    socket.onopen = this.webSocketOnOpen.bind(this);
-    socket.onclose = this.webSocketOnClose.bind(this);
-    socket.onmessage = this._handleMessage.bind(this);
+    const generation = ++this.connectionGeneration;
     this.websocket = socket;
+    socket.onopen = () => this.webSocketOnOpen(socket, generation);
+    socket.onclose = (event) => this.webSocketOnClose(event, socket, generation);
+    socket.onmessage = (message) => this._handleMessage(message, socket, generation);
 
     return Promise.resolve();
   }
 
-  webSocketOnOpen = (): void => {
+  webSocketOnOpen = (socket = this.websocket, generation = this.connectionGeneration): void => {
+    if (!this.ownsSocket(socket, generation)) {
+      return;
+    }
+
     this.websocketConnected = true;
     this.logger.info('websocket open the sennheiser software');
   };
 
-  webSocketOnClose (err: { code: number, reason: string, wasClean: boolean }): void {
+  webSocketOnClose (
+    err: { code: number, reason: string, wasClean: boolean },
+    socket = this.websocket,
+    generation = this.connectionGeneration
+  ): void {
+    if (!this.ownsSocket(socket, generation)) {
+      return;
+    }
+
+    this.websocket = null;
+    this.connectionGeneration++;
     this.websocketConnected = false;
+    this.deviceInfo = null;
     if (!err.wasClean) {
       this.logger.error(err);
     }
@@ -113,14 +136,7 @@ export default class SennheiserService extends VendorImplementation {
   }
 
   disconnect (): Promise<void> {
-    if (!this.isConnected) {
-      return Promise.resolve();
-    }
-
-    this._sendMessage({
-      Event: SennheiserEvents.TerminateConnection,
-      EventType: SennheiserEventTypes.Request,
-    });
+    this.retireSocket(this.websocket, this.connectionGeneration, true);
 
     return Promise.resolve();
   }
@@ -213,7 +229,15 @@ export default class SennheiserService extends VendorImplementation {
     return Promise.resolve();
   }
 
-  _handleMessage (message: { data: string }): void {
+  _handleMessage (
+    message: { data: string },
+    socket = this.websocket,
+    generation = this.connectionGeneration
+  ): void {
+    if (!this.ownsSocket(socket, generation)) {
+      return;
+    }
+
     let payload: SennheiserPayload;
     try {
       payload = JSON.parse(message.data);
@@ -307,10 +331,7 @@ export default class SennheiserService extends VendorImplementation {
         }
         break;
       case SennheiserEvents.TerminateConnection:
-        if (this.websocket.readyState === 1) {
-          this.websocket.close();
-        }
-        this.websocket = null;
+        this.retireSocket(socket, generation, false);
         break;
       default:
         if (payload.EventType === SennheiserEventTypes.Ack) {
@@ -319,6 +340,47 @@ export default class SennheiserService extends VendorImplementation {
         }
         break;
       }
+    }
+  }
+
+  private ownsSocket (socket: WebSocket, generation: number): boolean {
+    return socket === this.websocket && generation === this.connectionGeneration;
+  }
+
+  private retireSocket (socket: WebSocket, generation: number, sendTerminate: boolean): void {
+    if (!socket || !this.ownsSocket(socket, generation)) {
+      if (!socket && (this.isConnected || this.isConnecting)) {
+        this.changeConnectionStatus({ isConnected: false, isConnecting: false });
+      }
+      return;
+    }
+
+    this.websocket = null;
+    this.connectionGeneration++;
+    this.websocketConnected = false;
+    this.deviceInfo = null;
+
+    if (sendTerminate && socket.readyState === WebSocket.OPEN) {
+      try {
+        socket.send(JSON.stringify({
+          Event: SennheiserEvents.TerminateConnection,
+          EventType: SennheiserEventTypes.Request,
+        }));
+      } catch (error) {
+        this.logger.warn('Failed to send sennheiser termination message before closing');
+      }
+    }
+
+    if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
+      try {
+        socket.close();
+      } catch (error) {
+        this.logger.warn('Failed to close sennheiser websocket');
+      }
+    }
+
+    if (this.isConnected || this.isConnecting) {
+      this.changeConnectionStatus({ isConnected: false, isConnecting: false });
     }
   }
 }

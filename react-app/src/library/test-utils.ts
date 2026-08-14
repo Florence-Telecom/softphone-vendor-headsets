@@ -4,14 +4,14 @@
 import { VendorImplementation } from "./services/vendor-implementations/vendor-implementation";
 import { EmittedHeadsetEvents } from "./types/emitted-headset-events";
 
-export function createMockWebSocket () {
+export function createMockWebSocket (): WebSocket {
   return {
     readyState: 0,
     send: () => {},
     close: () => {},
     onOpen: () => {},
     onClose: () => {},
-  };
+  } as unknown as WebSocket;
 }
 
 export const mockLogger = {

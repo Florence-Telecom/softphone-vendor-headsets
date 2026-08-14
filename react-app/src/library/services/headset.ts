@@ -43,7 +43,11 @@ export default class HeadsetService {
     this.plantronics = PlantronicsService.getInstance({ logger: this.logger, appName: config.appName });
     this.jabraNative = JabraNativeService.getInstance({ logger: this.logger });
     this.jabra = JabraService.getInstance({ logger: this.logger });
-    this.sennheiser = SennheiserService.getInstance({ logger: this.logger });
+    this.sennheiser = SennheiserService.getInstance({
+      logger: this.logger,
+      appName: config.appName,
+      createNew: config.createNew
+    });
     this.yealink = YealinkService.getInstance({ logger: this.logger });
     this.vbet = VBetService.getInstance({ logger: this.logger });
     this.cyberAcoustics = CyberAcousticsService.getInstance({ logger: this.logger });
@@ -334,7 +338,7 @@ export default class HeadsetService {
     this.selectedImplementation.disconnect(clearReason);
     this._headsetEvents$.next({ event: HeadsetEvents.implementationChanged, payload: null });
     this.selectedImplementation = null;
-    this.handleDeviceConnectionStatusChanged();
+    this.publishConnectionStatus();
   }
 
   private setRemoveTimer (conversationId) {
@@ -349,7 +353,7 @@ export default class HeadsetService {
   }
 
   private handleDeviceAnsweredCall (event: VendorEvent<EventInfoWithConversationId>): void {
-    if (event.vendor !== this.selectedImplementation) {
+    if (!this.isEventFromSelectedImplementation(event)) {
       return;
     }
 
@@ -365,7 +369,7 @@ export default class HeadsetService {
   }
 
   private handleDeviceRejectedCall (event: VendorEvent<EventInfoWithConversationId>): void {
-    if (event.vendor !== this.selectedImplementation) {
+    if (!this.isEventFromSelectedImplementation(event)) {
       return;
     }
 
@@ -383,6 +387,10 @@ export default class HeadsetService {
   }
 
   private handleDeviceEndedCall (event: VendorEvent<EventInfoWithConversationId>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.info('Headset: device ended the call');
 
     const expectedStatePostAction: Partial<HeadsetState> = {
@@ -400,6 +408,10 @@ export default class HeadsetService {
   }
 
   private handleDeviceMuteStatusChanged (event: VendorEvent<MutedEventInfo>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.info('Headset: device mute status changed: ', event.body.isMuted);
     if (Object.values(this.headsetConversationStates).some(headsetState => headsetState.muted !== event.body.isMuted)) {
       Object.values(this.headsetConversationStates).forEach(headsetState => headsetState.muted = event.body.isMuted);
@@ -408,6 +420,10 @@ export default class HeadsetService {
   }
 
   private handleDeviceHoldStatusChanged (event: VendorEvent<HoldEventInfo>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.info('Headset: device hold status changed', event.body.holdRequested);
 
     const expectedStatePostAction: Partial<HeadsetState> = {
@@ -419,11 +435,23 @@ export default class HeadsetService {
     this._headsetEvents$.next({ event: HeadsetEvents.deviceHoldStatusChanged, payload: { ...event.body } });
   }
 
-  private handleDeviceConnectionStatusChanged (): void {
+  private handleDeviceConnectionStatusChanged (event: VendorEvent<any>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
+    this.publishConnectionStatus();
+  }
+
+  private publishConnectionStatus (): void {
     this._headsetEvents$.next({ event: HeadsetEvents.deviceConnectionStatusChanged, payload: this.connectionStatus() });
   }
 
   private handleWebHidPermissionRequested (event: VendorEvent<WebHidPermissionRequest>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.debug('Requesting Webhid Permissions');
     this._headsetEvents$.next({ event: HeadsetEvents.webHidPermissionRequested, payload: { ...event.body } });
   }
@@ -432,6 +460,14 @@ export default class HeadsetService {
    * It is here to help log all events in the call process at least for Plantronics
    */
   private handleDeviceLogs (eventInfo: VendorEvent<any>): void {
+    if (!this.isEventFromSelectedImplementation(eventInfo)) {
+      return;
+    }
+
     this._headsetEvents$.next({ event: HeadsetEvents.loggableEvent, payload: { ...eventInfo.body } });
+  }
+
+  private isEventFromSelectedImplementation (event: VendorEvent<any>): boolean {
+    return event.vendor === this.selectedImplementation;
   }
 }
