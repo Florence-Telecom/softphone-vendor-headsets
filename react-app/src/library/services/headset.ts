@@ -1,5 +1,5 @@
 import { Observable, Subject } from 'rxjs';
-import { VendorImplementation, ImplementationConfig } from './vendor-implementations/vendor-implementation';
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from './vendor-implementations/vendor-implementation';
 import CyberAcousticsService from './vendor-implementations/CyberAcoustics/CyberAcoustics';
 import PlantronicsService from './vendor-implementations/plantronics/plantronics';
 import SennheiserService from './vendor-implementations/sennheiser/sennheiser';
@@ -125,7 +125,11 @@ export default class HeadsetService {
     }
   }
 
-  async changeImplementation (implementation: VendorImplementation | null, deviceLabel: string): Promise<void> {
+  async changeImplementation (
+    implementation: VendorImplementation | null,
+    deviceLabel: string,
+    options?: ImplementationConnectionOptions
+  ): Promise<void> {
     if (implementation === this.selectedImplementation) {
       return;
     }
@@ -148,7 +152,7 @@ export default class HeadsetService {
     this._headsetEvents$.next({ event: HeadsetEvents.implementationChanged, payload: implementation });
 
     if (implementation) {
-      await implementation.connect(deviceLabel);
+      await implementation.connect(deviceLabel, options);
       if (
         transitionGeneration !== this.implementationTransitionGeneration &&
         this.selectedImplementation !== implementation
@@ -296,12 +300,15 @@ export default class HeadsetService {
     return implementation.endAllCalls();
   }
 
-  retryConnection (micLabel: string): Promise<void> {
+  retryConnection (
+    micLabel: string,
+    options?: ImplementationConnectionOptions
+  ): Promise<void> {
     if (!this.selectedImplementation) {
       return Promise.reject(new Error('No active headset implementation'));
     }
 
-    return this.selectedImplementation.connect(micLabel);
+    return this.selectedImplementation.connect(micLabel, options);
   }
 
   connectionStatus (): DeviceConnectionStatus {

@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from "../vendor-implementation";
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from "../vendor-implementation";
 import { CallInfo } from '../../..';
 import DeviceInfo, { PartialHIDDevice } from "../../../types/device-info";
 import { PartialInputReportEvent } from '../../../types/consumed-headset-events';
@@ -53,16 +53,17 @@ export default class YealinkService extends VendorImplementation {
     return ['yealink', '(6993:'].some(searchVal => lowerLabel.includes(searchVal));
   }
 
-  async connect (originalDeviceLabel: string): Promise<void> {
+  async connect (originalDeviceLabel = '', options?: ImplementationConnectionOptions): Promise<void> {
     if (!this.isConnecting) {
       this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
     }
     const deviceLabel = originalDeviceLabel.toLowerCase();
+    const manualSelection = !!options?.manualProviderSelection;
 
     const deviceList: PartialHIDDevice[] = await (window.navigator as any).hid.getDevices();
     deviceList.forEach(device => {
       if (!this.activeDevice) {
-        if (deviceLabel.includes(device?.productName?.toLowerCase())) {
+        if (manualSelection || deviceLabel.includes(device?.productName?.toLowerCase())) {
           for (const collection of device.collections) {
             if (collection.usage === HEADSET_USAGE &&
               collection.usagePage === HEADSET_USAGE_PAGE) {
@@ -84,12 +85,14 @@ export default class YealinkService extends VendorImplementation {
           this.requestWebHidPermissions(async () => {
             const productId = this.deductProductId(originalDeviceLabel);
             const filters = [{ usage: HEADSET_USAGE, usagePage: HEADSET_USAGE_PAGE, vendorId: VENDOR_ID, productId: productId || undefined }];
-            await (window.navigator as any).hid.requestDevice({ filters });
+            const requestedDevices: PartialHIDDevice[] = await (window.navigator as any).hid.requestDevice({ filters });
             clearTimeout(waiter);
-            const deviceLists: PartialHIDDevice[] = await (window.navigator as any).hid.getDevices();
+            const deviceLists: PartialHIDDevice[] = manualSelection
+              ? requestedDevices
+              : await (window.navigator as any).hid.getDevices();
             let bFind = false;
             deviceLists.forEach(device => {
-              if (deviceLabel.includes(device?.productName?.toLowerCase())) {
+              if (manualSelection || deviceLabel.includes(device?.productName?.toLowerCase())) {
                 for (const collection of device.collections) {
                   if (collection.usage === HEADSET_USAGE
                     && collection.usagePage === HEADSET_USAGE_PAGE) {

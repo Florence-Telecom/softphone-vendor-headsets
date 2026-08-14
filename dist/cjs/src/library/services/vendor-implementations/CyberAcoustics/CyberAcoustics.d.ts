@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from "../vendor-implementation";
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from "../vendor-implementation";
 import { CallInfo } from '../../..';
 import DeviceInfo, { PartialHIDDevice } from "../../../types/device-info";
 import { PartialInputReportEvent } from '../../../types/consumed-headset-events';
@@ -30,11 +30,11 @@ export default class CyberAcousticsService extends VendorImplementation {
     get deviceInfo(): DeviceInfo;
     isSupported(): boolean;
     deviceLabelMatchesVendor(label: string): boolean;
-    connect(originalDeviceLabel: string): Promise<void>;
-    connectFromHidPermissions(devList: any, originalDeviceLabel: string): Promise<boolean>;
+    connect(originalDeviceLabel?: string, options?: ImplementationConnectionOptions): Promise<void>;
+    connectFromHidPermissions(devList: any, originalDeviceLabel: string, manualSelection?: boolean): Promise<boolean>;
     handleInputReport(event: PartialInputReportEvent): void;
     handleDeviceConnect(): Promise<void>;
-    selectDevice(devList: PartialHIDDevice[], originalDeviceLabel: string): boolean;
+    selectDevice(devList: PartialHIDDevice[], originalDeviceLabel: string, manualSelection?: boolean): boolean;
     disconnect(): Promise<void>;
     incomingCall(callInfo: CallInfo): Promise<void>;
     outgoingCall(callInfo: CallInfo): Promise<void>;

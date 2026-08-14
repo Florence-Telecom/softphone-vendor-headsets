@@ -219,6 +219,47 @@ describe('JabraService', () => {
       expect(statusChangeSpy).toHaveBeenCalledWith({ isConnected: true, isConnecting: false });
     });
 
+    it('should connect a single existing device after manual provider selection without a label', async () => {
+      const existingDeviceSpy = jest.spyOn(jabraService, 'getPreviouslyConnectedDevice').mockResolvedValue(mockDevice1 as any);
+      const permissionSpy = jest.spyOn(jabraService, 'deviceHasPermissions');
+      const callControl = createMockCallControl(new Subject<ICallControlSignal>().asObservable());
+      jest.spyOn(jabraService, 'createCallControlFactory').mockReturnValue({
+        createCallControl: async () => callControl,
+      } as any);
+
+      await jabraService.connect('', { manualProviderSelection: true });
+
+      expect(existingDeviceSpy).toHaveBeenCalledWith('', true);
+      expect(permissionSpy).not.toHaveBeenCalled();
+      expect(jabraService.isConnected).toBe(true);
+    });
+
+    it('should request an explicitly selected device when manual selection is ambiguous', async () => {
+      jest.spyOn(jabraService, 'getPreviouslyConnectedDevice').mockResolvedValue(null);
+      const webhidSpy = jest.spyOn(jabraService, 'getDeviceFromWebhid').mockResolvedValue(mockDevice2 as any);
+      const callControl = createMockCallControl(new Subject<ICallControlSignal>().asObservable());
+      jest.spyOn(jabraService, 'createCallControlFactory').mockReturnValue({
+        createCallControl: async () => callControl,
+      } as any);
+
+      await jabraService.connect('', { manualProviderSelection: true });
+
+      expect(webhidSpy).toHaveBeenCalledWith('', true);
+      expect(jabraService.deviceInfo.deviceId).toBe(String(mockDevice2.id));
+    });
+
+    it('should leave connecting state after a rejected manual pairing', async () => {
+      jabraService.jabraSdk = await initializeSdk() as any;
+      jabraService.callControlFactory = {} as any;
+      jest.spyOn(jabraService, 'getPreviouslyConnectedDevice').mockResolvedValue(null);
+      jest.spyOn(jabraService, 'getDeviceFromWebhid').mockRejectedValue(new Error('denied'));
+
+      await jabraService.connect(undefined, { manualProviderSelection: true });
+
+      expect(jabraService.isConnecting).toBe(false);
+      expect(jabraService.isConnected).toBe(false);
+    });
+
     it('should fail to connect and set statuses accordingly', async () => {
       const statusChangeSpy = jest.spyOn(jabraService, 'changeConnectionStatus');
       jest.spyOn(jabraService, 'getPreviouslyConnectedDevice').mockResolvedValue(null);
@@ -1368,6 +1409,32 @@ describe('JabraService', () => {
       expect(device).toBe(mockDevice2);
     });
 
+    it('should return the one newly granted device during manual selection', async () => {
+      const sub = new BehaviorSubject([mockDevice1]);
+      jabraService.jabraSdk = await initializeSdk(sub as any) as any;
+      jabraService.requestWebHidPermissions = jest.fn();
+
+      const devicePromise = jabraService.getDeviceFromWebhid('', true);
+      await flushPromises();
+      sub.next([mockDevice1, mockDevice2]);
+
+      await expect(devicePromise).resolves.toBe(mockDevice2);
+    });
+
+    it('should reject an ambiguous manual grant instead of choosing arbitrarily', async () => {
+      const sub = new BehaviorSubject([mockDevice1, mockDevice2]);
+      jabraService.jabraSdk = await initializeSdk(sub as any) as any;
+      jabraService.requestWebHidPermissions = jest.fn();
+
+      const devicePromise = jabraService.getDeviceFromWebhid('', true);
+      await flushPromises();
+      await flushPromises();
+      sub.next([mockDevice1, mockDevice2]);
+      sub.error(new Error('ambiguous selection'));
+
+      await expect(devicePromise).rejects.toThrow('ambiguous selection');
+    });
+
     it('should timeout after 30 seconds', async () => {
       jest.useFakeTimers();
 
@@ -1440,6 +1507,24 @@ describe('JabraService', () => {
 
       const device = await devicePromise;
       expect(device).toBe(mockDevice2);
+    });
+
+    it('should use the only existing device during manual selection', async () => {
+      const sub = new BehaviorSubject([mockDevice1]);
+      jabraService.jabraSdk = await initializeSdk(sub as any) as any;
+
+      await expect(jabraService.getPreviouslyConnectedDevice('', true)).resolves.toBe(mockDevice1);
+    });
+
+    it('should not choose among multiple existing devices during manual selection', async () => {
+      jest.useFakeTimers();
+      const sub = new BehaviorSubject([mockDevice1, mockDevice2]);
+      jabraService.jabraSdk = await initializeSdk(sub as any) as any;
+
+      const devicePromise = jabraService.getPreviouslyConnectedDevice('', true);
+      jest.advanceTimersByTime(15100);
+
+      await expect(devicePromise).resolves.toBeNull();
     });
 
     it('should return null', async () => {

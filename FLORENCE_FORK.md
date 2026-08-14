@@ -10,6 +10,8 @@ It carries Florence-specific fixes:
 3. prevent unselected vendor implementations from mutating or publishing headset state.
 4. serialize implementation transitions so a slower vendor switch cannot overwrite a
    newer selection.
+5. support explicit call-control provider selection when media labels are hidden or
+   generic, while retaining provider-filtered WebHID validation.
 
 The Jabra SDK is intentionally pinned to `4.4.6`; update it only as an explicit,
 tested dependency change so Papaya and fork installs cannot drift independently.

@@ -47,17 +47,18 @@ class YealinkService extends vendor_implementation_1.VendorImplementation {
         const lowerLabel = label.toLowerCase();
         return ['yealink', '(6993:'].some(searchVal => lowerLabel.includes(searchVal));
     }
-    connect(originalDeviceLabel) {
+    connect(originalDeviceLabel = '', options) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.isConnecting) {
                 this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
             }
             const deviceLabel = originalDeviceLabel.toLowerCase();
+            const manualSelection = !!(options === null || options === void 0 ? void 0 : options.manualProviderSelection);
             const deviceList = yield window.navigator.hid.getDevices();
             deviceList.forEach(device => {
                 var _a;
                 if (!this.activeDevice) {
-                    if (deviceLabel.includes((_a = device === null || device === void 0 ? void 0 : device.productName) === null || _a === void 0 ? void 0 : _a.toLowerCase())) {
+                    if (manualSelection || deviceLabel.includes((_a = device === null || device === void 0 ? void 0 : device.productName) === null || _a === void 0 ? void 0 : _a.toLowerCase())) {
                         for (const collection of device.collections) {
                             if (collection.usage === HEADSET_USAGE &&
                                 collection.usagePage === HEADSET_USAGE_PAGE) {
@@ -78,13 +79,15 @@ class YealinkService extends vendor_implementation_1.VendorImplementation {
                         this.requestWebHidPermissions(() => __awaiter(this, void 0, void 0, function* () {
                             const productId = this.deductProductId(originalDeviceLabel);
                             const filters = [{ usage: HEADSET_USAGE, usagePage: HEADSET_USAGE_PAGE, vendorId: VENDOR_ID, productId: productId || undefined }];
-                            yield window.navigator.hid.requestDevice({ filters });
+                            const requestedDevices = yield window.navigator.hid.requestDevice({ filters });
                             clearTimeout(waiter);
-                            const deviceLists = yield window.navigator.hid.getDevices();
+                            const deviceLists = manualSelection
+                                ? requestedDevices
+                                : yield window.navigator.hid.getDevices();
                             let bFind = false;
                             deviceLists.forEach(device => {
                                 var _a;
-                                if (deviceLabel.includes((_a = device === null || device === void 0 ? void 0 : device.productName) === null || _a === void 0 ? void 0 : _a.toLowerCase())) {
+                                if (manualSelection || deviceLabel.includes((_a = device === null || device === void 0 ? void 0 : device.productName) === null || _a === void 0 ? void 0 : _a.toLowerCase())) {
                                     for (const collection of device.collections) {
                                         if (collection.usage === HEADSET_USAGE
                                             && collection.usagePage === HEADSET_USAGE_PAGE) {

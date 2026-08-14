@@ -14,6 +14,10 @@ export interface ImplementationConfig {
   createNew?: boolean; // this should only be used for testing
 }
 
+export interface ImplementationConnectionOptions {
+  manualProviderSelection?: boolean;
+}
+
 export abstract class VendorImplementation extends (EventEmitter as { new(): StrictEventEmitter<EventEmitter, EmittedHeadsetEvents> }) {
   // TODO: rename this to something more descriptive
   vendorName = 'Not Specified';
@@ -52,7 +56,7 @@ export abstract class VendorImplementation extends (EventEmitter as { new(): Str
     throw new Error(`${this.vendorName} - deviceLabelMatchesVendor() not implemented`);
   }
 
-  connect (selectedMicLabel?: string): Promise<any> {
+  connect (selectedMicLabel?: string, options?: ImplementationConnectionOptions): Promise<any> {
     return Promise.reject(new Error(`${this.vendorName} - connect() not implemented`));
   }
 

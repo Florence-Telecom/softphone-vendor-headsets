@@ -90,13 +90,13 @@ class VBetService extends vendor_implementation_1.VendorImplementation {
         const lowerLabel = label.toLowerCase();
         return ['vt', '340b'].some((searchVal) => lowerLabel.includes(searchVal));
     }
-    connect(originalDeviceLabel) {
+    connect(originalDeviceLabel = '', options) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.isConnecting) {
                 this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
             }
             try {
-                const dev = yield (0, webhid_sdk_1.findDevice)(originalDeviceLabel);
+                const dev = (options === null || options === void 0 ? void 0 : options.manualProviderSelection) ? null : yield (0, webhid_sdk_1.findDevice)(originalDeviceLabel);
                 if (dev) {
                     this.activeDevice = dev;
                 }

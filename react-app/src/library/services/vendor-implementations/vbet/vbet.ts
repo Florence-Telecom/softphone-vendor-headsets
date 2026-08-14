@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from '../vendor-implementation';
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from '../vendor-implementation';
 import { CallInfo } from '../../..';
 import DeviceInfo from '../../../types/device-info';
 import { isCefHosted } from '../../../utils';
@@ -34,12 +34,12 @@ export default class VBetService extends VendorImplementation {
     return ['vt', '340b'].some((searchVal) => lowerLabel.includes(searchVal));
   }
 
-  async connect (originalDeviceLabel: string): Promise<void> {
+  async connect (originalDeviceLabel = '', options?: ImplementationConnectionOptions): Promise<void> {
     if (!this.isConnecting) {
       this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
     }
     try {
-      const dev = await findDevice(originalDeviceLabel);
+      const dev = options?.manualProviderSelection ? null : await findDevice(originalDeviceLabel);
       if (dev) {
         this.activeDevice = dev;
       } else {

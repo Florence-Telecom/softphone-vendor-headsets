@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from '../vendor-implementation';
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from '../vendor-implementation';
 import DeviceInfo from '../../../types/device-info';
 import {
   IApi,
@@ -332,7 +332,7 @@ export default class JabraService extends VendorImplementation {
     return deviceLabel.toLowerCase().includes(device?.name?.toLowerCase());
   }
 
-  async connect (originalDeviceLabel: string): Promise<void> {
+  async connect (originalDeviceLabel = '', options?: ImplementationConnectionOptions): Promise<void> {
     if (this.isConnecting) {
       return;
     }
@@ -344,11 +344,23 @@ export default class JabraService extends VendorImplementation {
     }
 
     const deviceLabel = originalDeviceLabel.toLocaleLowerCase();
+    const manualSelection = !!options?.manualProviderSelection;
 
     this._deviceInfo = null;
 
     let selectedDevice;
-    if (await this.deviceHasPermissions(deviceLabel)) {
+    if (manualSelection) {
+      selectedDevice = await this.getPreviouslyConnectedDevice(deviceLabel, true);
+      if (!selectedDevice) {
+        try {
+          selectedDevice = await this.getDeviceFromWebhid(deviceLabel, true);
+        } catch (e) {
+          this.isConnecting &&
+            this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: false });
+          return;
+        }
+      }
+    } else if (await this.deviceHasPermissions(deviceLabel)) {
       selectedDevice = await this.getPreviouslyConnectedDevice(deviceLabel);
 
       if (!selectedDevice) {
@@ -389,13 +401,13 @@ export default class JabraService extends VendorImplementation {
     return deviceFound;
   }
 
-  async getPreviouslyConnectedDevice (deviceLabel: string): Promise<IDevice> {
+  async getPreviouslyConnectedDevice (deviceLabel: string, manualSelection = false): Promise<IDevice> {
     const waitForDevice: Observable<IDevice> = this.jabraSdk.deviceList.pipe(
       defaultIfEmpty(null),
       first((devices: IDevice[]) => !!devices.length),
-      map((devices: IDevice[]) =>
-        devices.find((device) => this.isDeviceInList(device, deviceLabel))
-      ),
+      map((devices: IDevice[]) => manualSelection
+        ? devices.length === 1 ? devices[0] : null
+        : devices.find((device) => this.isDeviceInList(device, deviceLabel))),
       filter((device) => !!device),
       timeout(15000)
     );
@@ -409,14 +421,20 @@ export default class JabraService extends VendorImplementation {
     });
   }
 
-  async getDeviceFromWebhid (deviceLabel: string): Promise<IDevice> {
+  async getDeviceFromWebhid (deviceLabel: string, manualSelection = false): Promise<IDevice> {
+    const previouslyKnownIds = manualSelection
+      ? await firstValueFrom(this.jabraSdk.deviceList.pipe(first())).then(devices => new Set(devices.map(device => String(device.id))))
+      : new Set<string>();
     this.requestWebHidPermissions(webHidPairing);
 
     return firstValueFrom(
       this.jabraSdk.deviceList.pipe(
-        map((devices: IDevice[]) =>
-          devices.find((device) => this.isDeviceInList(device, deviceLabel))
-        ),
+        map((devices: IDevice[]) => {
+          if (!manualSelection) return devices.find((device) => this.isDeviceInList(device, deviceLabel));
+          const newlyGranted = devices.filter(device => !previouslyKnownIds.has(String(device.id)));
+          if (newlyGranted.length === 1) return newlyGranted[0];
+          return null;
+        }),
         filter((device) => !!device),
         first(),
         timeout(30000)

@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from "../vendor-implementation";
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from "../vendor-implementation";
 import { CallInfo } from '../../..';
 import DeviceInfo from "../../../types/device-info";
 export default class YealinkService extends VendorImplementation {
@@ -16,7 +16,7 @@ export default class YealinkService extends VendorImplementation {
     get deviceInfo(): DeviceInfo;
     isSupported(): boolean;
     deviceLabelMatchesVendor(label: string): boolean;
-    connect(originalDeviceLabel: string): Promise<void>;
+    connect(originalDeviceLabel?: string, options?: ImplementationConnectionOptions): Promise<void>;
     disconnect(): Promise<void>;
     processBtnPress(value: number): void;
     incomingCall(callInfo: CallInfo): Promise<void>;

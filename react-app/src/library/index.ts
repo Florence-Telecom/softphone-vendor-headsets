@@ -6,5 +6,6 @@ export * from './types/consumed-headset-events';
 export * from './types/device-info';
 export * from './types/emitted-headset-events';
 export * from './types/headset-states';
+export type { ImplementationConnectionOptions } from './services/vendor-implementations/vendor-implementation';
 export { VendorImplementation };
 export default HeadsetService;

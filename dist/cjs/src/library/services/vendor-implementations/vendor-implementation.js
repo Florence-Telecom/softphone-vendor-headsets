@@ -30,7 +30,7 @@ class VendorImplementation extends events_1.EventEmitter {
     deviceLabelMatchesVendor(label) {
         throw new Error(`${this.vendorName} - deviceLabelMatchesVendor() not implemented`);
     }
-    connect(selectedMicLabel) {
+    connect(selectedMicLabel, options) {
         return Promise.reject(new Error(`${this.vendorName} - connect() not implemented`));
     }
     disconnect(clearReason) {

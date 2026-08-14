@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from '../vendor-implementation';
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from '../vendor-implementation';
 import { CallInfo } from '../../..';
 import DeviceInfo from '../../../types/device-info';
 import { DeviceSignalType } from '@vbet/webhid-sdk';
@@ -13,7 +13,7 @@ export default class VBetService extends VendorImplementation {
     get deviceInfo(): DeviceInfo;
     isSupported(): boolean;
     deviceLabelMatchesVendor(label: string): boolean;
-    connect(originalDeviceLabel: string): Promise<void>;
+    connect(originalDeviceLabel?: string, options?: ImplementationConnectionOptions): Promise<void>;
     processBtnPress: (signal: DeviceSignalType) => void;
     disconnect(): Promise<void>;
     incomingCall(callInfo: CallInfo): Promise<void>;

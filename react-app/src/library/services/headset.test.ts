@@ -135,11 +135,12 @@ describe('HeadsetService', () => {
       jest.spyOn(sennheiser, 'disconnect');
       jest.spyOn(plantronics, 'connect');
       headsetService.selectedImplementation = sennheiser;
+      const options = { manualProviderSelection: true };
 
-      await headsetService.changeImplementation(plantronics, 'test label');
+      await headsetService.changeImplementation(plantronics, 'test label', options);
 
       expect(sennheiser.disconnect).toHaveBeenCalled();
-      expect(plantronics.connect).toHaveBeenCalled();
+      expect(plantronics.connect).toHaveBeenCalledWith('test label', options);
     });
 
     it('should keep the newest selection when overlapping disconnects finish out of order', async () => {
@@ -148,7 +149,7 @@ describe('HeadsetService', () => {
       (plantronics.disconnect as jest.Mock)
         .mockImplementationOnce(() => new Promise<void>(resolve => { resolveFirstDisconnect = resolve; }))
         .mockImplementationOnce(() => new Promise<void>(resolve => { resolveSecondDisconnect = resolve; }));
-      const jabraConnect = jest.spyOn(jabra, 'connect').mockResolvedValue();
+      const jabraConnect = jest.spyOn(jabra, 'connect').mockResolvedValue(undefined);
       headsetService.selectedImplementation = plantronics;
 
       const olderTransition = headsetService.changeImplementation(sennheiser, 'EPOS');
@@ -160,7 +161,7 @@ describe('HeadsetService', () => {
       await olderTransition;
 
       expect(headsetService.selectedImplementation).toBe(jabra);
-      expect(jabraConnect).toHaveBeenCalledWith('Jabra');
+      expect(jabraConnect).toHaveBeenCalledWith('Jabra', undefined);
       expect(sennheiser.connect).not.toHaveBeenCalled();
     });
 
@@ -1210,11 +1211,12 @@ describe('HeadsetService', () => {
       const impl = {
         connect: jest.fn().mockResolvedValue(null)
       };
+      const options = { manualProviderSelection: true };
 
       headsetService.selectedImplementation = impl as any;
-      await headsetService.retryConnection('Test Label');
+      await headsetService.retryConnection('Test Label', options);
 
-      expect(impl.connect).toHaveBeenCalledWith('Test Label');
+      expect(impl.connect).toHaveBeenCalledWith('Test Label', options);
     });
   });
 

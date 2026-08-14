@@ -88,13 +88,13 @@ export default class VBetService extends VendorImplementation {
         const lowerLabel = label.toLowerCase();
         return ['vt', '340b'].some((searchVal) => lowerLabel.includes(searchVal));
     }
-    connect(originalDeviceLabel) {
+    connect(originalDeviceLabel = '', options) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.isConnecting) {
                 this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
             }
             try {
-                const dev = yield findDevice(originalDeviceLabel);
+                const dev = (options === null || options === void 0 ? void 0 : options.manualProviderSelection) ? null : yield findDevice(originalDeviceLabel);
                 if (dev) {
                     this.activeDevice = dev;
                 }

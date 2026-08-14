@@ -866,6 +866,28 @@ describe('VBetservice', () => {
       expect(statusChangeSpy).toHaveBeenCalledWith({ isConnected: true, isConnecting: false });
     });
 
+    it('forces provider-scoped consent for manual selection without a media label', async () => {
+      const requestSpy = (vbetService.requestWebHidPermissions = jest.fn((callback) => {
+        mockReqDeviceList = mockDeviceList1;
+        callback();
+      }));
+      mockDeviceList = mockDeviceList1;
+
+      await vbetService.connect('', { manualProviderSelection: true });
+
+      expect(requestSpy).toHaveBeenCalled();
+      expect(vbetService.deviceInfo.ProductName).toBe(mockTestDevName);
+    });
+
+    it('retains the default empty-label consent path', async () => {
+      vbetService.requestWebHidPermissions = jest.fn((callback) => {
+        mockReqDeviceList = mockDeviceList1;
+        callback();
+      });
+      await vbetService.connect();
+      expect(vbetService.isConnected).toBe(true);
+    });
+
     it('webhidRequest, connect with previously connected device but label not matched', async () => {
       const statusChangeSpy = jest.spyOn(vbetService, 'changeConnectionStatus');
       const requestSpy = (vbetService.requestWebHidPermissions = jest.fn((callback) => {

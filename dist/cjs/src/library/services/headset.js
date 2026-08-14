@@ -102,7 +102,7 @@ class HeadsetService {
             this.clearSelectedImplementation(changeReason);
         }
     }
-    changeImplementation(implementation, deviceLabel) {
+    changeImplementation(implementation, deviceLabel, options) {
         return __awaiter(this, void 0, void 0, function* () {
             if (implementation === this.selectedImplementation) {
                 return;
@@ -120,7 +120,7 @@ class HeadsetService {
             this.selectedImplementation = implementation;
             this._headsetEvents$.next({ event: consumed_headset_events_1.HeadsetEvents.implementationChanged, payload: implementation });
             if (implementation) {
-                yield implementation.connect(deviceLabel);
+                yield implementation.connect(deviceLabel, options);
                 if (transitionGeneration !== this.implementationTransitionGeneration &&
                     this.selectedImplementation !== implementation) {
                     yield implementation.disconnect();
@@ -259,11 +259,11 @@ class HeadsetService {
             return implementation.endAllCalls();
         });
     }
-    retryConnection(micLabel) {
+    retryConnection(micLabel, options) {
         if (!this.selectedImplementation) {
             return Promise.reject(new Error('No active headset implementation'));
         }
-        return this.selectedImplementation.connect(micLabel);
+        return this.selectedImplementation.connect(micLabel, options);
     }
     connectionStatus() {
         if (this.selectedImplementation) {

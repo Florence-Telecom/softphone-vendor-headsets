@@ -342,6 +342,30 @@ describe('CyberAcousticsService', () => {
       expect(cyberAcousticsService.activeDevice).not.toBeNull;
     }),
 
+    it('SHOULD accept a valid manually selected device without a media label', async () => {
+      cyberAcousticsService.activeDevice = null;
+
+      await cyberAcousticsService.connectFromHidPermissions(mackDeviceList1, '', true);
+
+      expect(cyberAcousticsService.activeDevice).not.toBeNull();
+    }),
+
+    it('SHOULD keep automatic validation as the permission helper default', async () => {
+      cyberAcousticsService.activeDevice = null;
+      await expect(cyberAcousticsService.connectFromHidPermissions(mackDeviceList2, '')).resolves.toBeUndefined();
+    }),
+
+    it('SHOULD retain default empty-label behavior', async () => {
+      cyberAcousticsService.requestWebHidPermissions = jest.fn((callback) => {
+        mackReqDeviceList = mackDeviceList1;
+        callback();
+      });
+      mackDeviceList = mackDeviceList2;
+      cyberAcousticsService.activeDevice = null;
+      await cyberAcousticsService.connect();
+      expect(cyberAcousticsService.isConnected).toBe(false);
+    }),
+
     it(`should not assign input or output reports if none found`, async () => {
       cyberAcousticsService.selectDevice( mackDeviceList3, "CyberAcoustics Emulation");
     }),

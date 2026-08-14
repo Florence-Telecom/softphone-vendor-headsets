@@ -5,6 +5,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # [Unreleased](https://github.com/purecloudlabs/softphone-vendor-headsets/compare/v2.5.6...HEAD)
 
+# [2.5.6-florence.3]
+## Added
+* Add a typed manual-provider connection option and preserve it across retries.
+* Support label-independent, provider-filtered manual WebHID selection for Jabra,
+  Yealink, VBet, and Cyber Acoustics.
+
+## Fixed
+* Avoid choosing an arbitrary Jabra device when several grants are already present.
+
 # [2.5.6-florence.2]
 ## Fixed
 * Serialize vendor transitions so a slower switch cannot overwrite a newer selection.

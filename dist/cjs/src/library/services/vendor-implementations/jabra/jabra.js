@@ -321,7 +321,7 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
         var _a;
         return deviceLabel.toLowerCase().includes((_a = device === null || device === void 0 ? void 0 : device.name) === null || _a === void 0 ? void 0 : _a.toLowerCase());
     }
-    connect(originalDeviceLabel) {
+    connect(originalDeviceLabel = '', options) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.isConnecting) {
                 return;
@@ -332,9 +332,23 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
                 this.callControlFactory = this.createCallControlFactory(this.jabraSdk);
             }
             const deviceLabel = originalDeviceLabel.toLocaleLowerCase();
+            const manualSelection = !!(options === null || options === void 0 ? void 0 : options.manualProviderSelection);
             this._deviceInfo = null;
             let selectedDevice;
-            if (yield this.deviceHasPermissions(deviceLabel)) {
+            if (manualSelection) {
+                selectedDevice = yield this.getPreviouslyConnectedDevice(deviceLabel, true);
+                if (!selectedDevice) {
+                    try {
+                        selectedDevice = yield this.getDeviceFromWebhid(deviceLabel, true);
+                    }
+                    catch (e) {
+                        this.isConnecting &&
+                            this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: false });
+                        return;
+                    }
+                }
+            }
+            else if (yield this.deviceHasPermissions(deviceLabel)) {
                 selectedDevice = yield this.getPreviouslyConnectedDevice(deviceLabel);
                 if (!selectedDevice) {
                     console.warn('Unable to find appropriate device. Setting state to "Not Running" to allow a retry"', deviceLabel);
@@ -377,9 +391,11 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
             return deviceFound;
         });
     }
-    getPreviouslyConnectedDevice(deviceLabel) {
+    getPreviouslyConnectedDevice(deviceLabel, manualSelection = false) {
         return __awaiter(this, void 0, void 0, function* () {
-            const waitForDevice = this.jabraSdk.deviceList.pipe((0, operators_1.defaultIfEmpty)(null), (0, operators_1.first)((devices) => !!devices.length), (0, operators_1.map)((devices) => devices.find((device) => this.isDeviceInList(device, deviceLabel))), (0, operators_1.filter)((device) => !!device), (0, operators_1.timeout)(15000));
+            const waitForDevice = this.jabraSdk.deviceList.pipe((0, operators_1.defaultIfEmpty)(null), (0, operators_1.first)((devices) => !!devices.length), (0, operators_1.map)((devices) => manualSelection
+                ? devices.length === 1 ? devices[0] : null
+                : devices.find((device) => this.isDeviceInList(device, deviceLabel))), (0, operators_1.filter)((device) => !!device), (0, operators_1.timeout)(15000));
             return (0, rxjs_1.firstValueFrom)(waitForDevice).catch((err) => {
                 if (err instanceof rxjs_1.TimeoutError || err instanceof rxjs_1.EmptyError) {
                     return null;
@@ -388,10 +404,20 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
             });
         });
     }
-    getDeviceFromWebhid(deviceLabel) {
+    getDeviceFromWebhid(deviceLabel, manualSelection = false) {
         return __awaiter(this, void 0, void 0, function* () {
+            const previouslyKnownIds = manualSelection
+                ? yield (0, rxjs_1.firstValueFrom)(this.jabraSdk.deviceList.pipe((0, operators_1.first)())).then(devices => new Set(devices.map(device => String(device.id))))
+                : new Set();
             this.requestWebHidPermissions(jabra_js_1.webHidPairing);
-            return (0, rxjs_1.firstValueFrom)(this.jabraSdk.deviceList.pipe((0, operators_1.map)((devices) => devices.find((device) => this.isDeviceInList(device, deviceLabel))), (0, operators_1.filter)((device) => !!device), (0, operators_1.first)(), (0, operators_1.timeout)(30000))).catch((err) => {
+            return (0, rxjs_1.firstValueFrom)(this.jabraSdk.deviceList.pipe((0, operators_1.map)((devices) => {
+                if (!manualSelection)
+                    return devices.find((device) => this.isDeviceInList(device, deviceLabel));
+                const newlyGranted = devices.filter(device => !previouslyKnownIds.has(String(device.id)));
+                if (newlyGranted.length === 1)
+                    return newlyGranted[0];
+                return null;
+            }), (0, operators_1.filter)((device) => !!device), (0, operators_1.first)(), (0, operators_1.timeout)(30000))).catch((err) => {
                 if (err instanceof rxjs_1.TimeoutError) {
                     err = new Error('The selected device was not granted WebHID permissions');
                 }

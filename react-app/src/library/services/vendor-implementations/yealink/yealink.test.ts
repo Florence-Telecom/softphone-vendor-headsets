@@ -106,6 +106,7 @@ describe('YealinkService', () => {
       },
       requestDevice: () => {
         mackDeviceList = mackReqDeviceList;
+        return mackReqDeviceList;
       }
     }),
   });
@@ -269,6 +270,28 @@ describe('YealinkService', () => {
       await yealinkService.connect(mackTestDevName);
       expect(requestSpy).toHaveBeenCalled();
       expect(statusChangeSpy).toHaveBeenCalledWith({ isConnected: true, isConnecting: false });
+    });
+
+    it('connects a manually selected valid device without a media label', async () => {
+      const requestSpy = yealinkService.requestWebHidPermissions = jest.fn((callback) => {
+        mackReqDeviceList = mackDeviceList1;
+        callback();
+      });
+      mackDeviceList = [];
+
+      await yealinkService.connect('', { manualProviderSelection: true });
+
+      expect(requestSpy).toHaveBeenCalled();
+      expect(yealinkService.isConnected).toBe(true);
+    });
+
+    it('keeps the default empty-label automatic behavior', async () => {
+      yealinkService.requestWebHidPermissions = jest.fn((callback) => {
+        mackReqDeviceList = mackDeviceList0;
+        callback();
+      });
+      await yealinkService.connect();
+      expect(yealinkService.isConnected).toBe(false);
     });
 
     it('webhidRequest, connect fail', async () => {

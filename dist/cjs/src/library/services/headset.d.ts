@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs';
-import { VendorImplementation, ImplementationConfig } from './vendor-implementations/vendor-implementation';
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from './vendor-implementations/vendor-implementation';
 import { CallInfo } from '../types/call-info';
 import { ConsumedHeadsetEvents, DeviceConnectionStatus } from '../types/consumed-headset-events';
 import { UpdateReasons } from '../types/headset-states';
@@ -27,7 +27,7 @@ export default class HeadsetService {
         micLabel: string;
     }): boolean;
     activeMicChange(newMicLabel: string, changeReason?: UpdateReasons): void;
-    changeImplementation(implementation: VendorImplementation | null, deviceLabel: string): Promise<void>;
+    changeImplementation(implementation: VendorImplementation | null, deviceLabel: string, options?: ImplementationConnectionOptions): Promise<void>;
     incomingCall(callInfo: CallInfo, hasOtherActiveCalls?: boolean): Promise<any>;
     outgoingCall(callInfo: CallInfo): Promise<any>;
     answerCall(conversationId: string, autoAnswer?: boolean): Promise<any>;
@@ -36,7 +36,7 @@ export default class HeadsetService {
     setHold(conversationId: string, value: boolean): Promise<any>;
     endCall(conversationId: string, hasOtherActiveCalls?: boolean): Promise<any>;
     endAllCalls(): Promise<any>;
-    retryConnection(micLabel: string): Promise<void>;
+    retryConnection(micLabel: string, options?: ImplementationConnectionOptions): Promise<void>;
     connectionStatus(): DeviceConnectionStatus;
     resetHeadsetStateForCall(conversationId: string): Promise<any>;
     private getConnectedImpl;

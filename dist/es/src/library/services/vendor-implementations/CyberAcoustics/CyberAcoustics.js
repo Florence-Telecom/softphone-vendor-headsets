@@ -87,7 +87,7 @@ export default class CyberAcousticsService extends VendorImplementation {
             'ca essential', 'ca-2890'].some(searchVal => lowerLabel.includes(searchVal));
     }
     // Connect: Attempt to connect to the device
-    connect(originalDeviceLabel) {
+    connect(originalDeviceLabel = '', options) {
         return __awaiter(this, void 0, void 0, function* () {
             //// DEBUG CODE ////
             // uncomment to test Forgetdevice with requestWebHidPermissions
@@ -101,6 +101,7 @@ export default class CyberAcousticsService extends VendorImplementation {
             //// END DEBUG CODE ////
             let bConnectSuccess = false;
             this.logger.debug("CA: Connect Attempt");
+            const manualSelection = !!(options === null || options === void 0 ? void 0 : options.manualProviderSelection);
             this.currentlDeviceLabel = originalDeviceLabel;
             this.logger.debug(`CA Device String = ${originalDeviceLabel}`);
             if (!this.isConnecting) {
@@ -109,7 +110,7 @@ export default class CyberAcousticsService extends VendorImplementation {
             // First try to see if this is a previously connected device- does not require
             // WebHID permission dialog
             const devList = yield window.navigator.hid.getDevices();
-            this.selectDevice(devList, originalDeviceLabel);
+            this.selectDevice(devList, originalDeviceLabel, manualSelection);
             if (this.activeDevice) {
                 // Open the device
                 if (!this.activeDevice.opened) {
@@ -146,7 +147,7 @@ export default class CyberAcousticsService extends VendorImplementation {
                                 ],
                             });
                             clearTimeout(HIDPermissionTimeout);
-                            const deviceFound = yield this.connectFromHidPermissions(devList, originalDeviceLabel);
+                            const deviceFound = yield this.connectFromHidPermissions(devList, originalDeviceLabel, manualSelection);
                             if (deviceFound) {
                                 resolve(deviceFound);
                             }
@@ -167,10 +168,10 @@ export default class CyberAcousticsService extends VendorImplementation {
         });
     }
     /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-    connectFromHidPermissions(devList, originalDeviceLabel) {
+    connectFromHidPermissions(devList, originalDeviceLabel, manualSelection = false) {
         return __awaiter(this, void 0, void 0, function* () {
             this.activeDevice = null;
-            this.selectDevice(devList, originalDeviceLabel);
+            this.selectDevice(devList, originalDeviceLabel, manualSelection);
             if (this.activeDevice) {
                 // Open the device
                 if (!this.activeDevice.opened) {
@@ -247,13 +248,13 @@ export default class CyberAcousticsService extends VendorImplementation {
             this.changeConnectionStatus({ isConnected: true, isConnecting: false });
         });
     }
-    selectDevice(devList, originalDeviceLabel) {
+    selectDevice(devList, originalDeviceLabel, manualSelection = false) {
         this.logger.debug("CA: SelectDevice");
         const deviceLabel = originalDeviceLabel.toLowerCase();
         let deviceFound = false;
         devList.forEach(device => {
             var _a;
-            if (deviceLabel.includes((_a = device === null || device === void 0 ? void 0 : device.productName) === null || _a === void 0 ? void 0 : _a.toLowerCase())) {
+            if (manualSelection || deviceLabel.includes((_a = device === null || device === void 0 ? void 0 : device.productName) === null || _a === void 0 ? void 0 : _a.toLowerCase())) {
                 for (const collection of device.collections) {
                     if ((collection.usage === HEADSET_USAGE || collection.usage === PHONE_USAGE) &&
                         (collection.usagePage === HEADSET_USAGE_PAGE)) {

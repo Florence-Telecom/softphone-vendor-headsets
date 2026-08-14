@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from "../vendor-implementation";
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from "../vendor-implementation";
 import { CallInfo } from '../../..';
 import DeviceInfo, { PartialHIDDevice } from "../../../types/device-info";
 import { PartialInputReportEvent } from '../../../types/consumed-headset-events';
@@ -107,7 +107,7 @@ export default class CyberAcousticsService extends VendorImplementation {
   }
 
   // Connect: Attempt to connect to the device
-  async connect (originalDeviceLabel: string): Promise<void> {
+  async connect (originalDeviceLabel = '', options?: ImplementationConnectionOptions): Promise<void> {
     //// DEBUG CODE ////
     // uncomment to test Forgetdevice with requestWebHidPermissions
 
@@ -124,6 +124,7 @@ export default class CyberAcousticsService extends VendorImplementation {
     let bConnectSuccess = false;
     this.logger.debug("CA: Connect Attempt");
 
+    const manualSelection = !!options?.manualProviderSelection;
     this.currentlDeviceLabel = originalDeviceLabel;
     this.logger.debug(`CA Device String = ${originalDeviceLabel}`);
 
@@ -134,7 +135,7 @@ export default class CyberAcousticsService extends VendorImplementation {
     // First try to see if this is a previously connected device- does not require
     // WebHID permission dialog
     const devList: PartialHIDDevice[] = await (window.navigator as any).hid.getDevices();
-    this.selectDevice(devList, originalDeviceLabel);
+    this.selectDevice(devList, originalDeviceLabel, manualSelection);
 
     if(this.activeDevice) {
       // Open the device
@@ -175,7 +176,7 @@ export default class CyberAcousticsService extends VendorImplementation {
               ],
             });
             clearTimeout(HIDPermissionTimeout);
-            const deviceFound = await this.connectFromHidPermissions(devList, originalDeviceLabel);
+            const deviceFound = await this.connectFromHidPermissions(devList, originalDeviceLabel, manualSelection);
             if(deviceFound){
               resolve(deviceFound);
             }
@@ -195,12 +196,12 @@ export default class CyberAcousticsService extends VendorImplementation {
     }
   }
   /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-  async connectFromHidPermissions (devList: any, originalDeviceLabel: string): Promise<boolean>
+  async connectFromHidPermissions (devList: any, originalDeviceLabel: string, manualSelection = false): Promise<boolean>
   /* eslint-enable */
   {
 
     this.activeDevice = null;
-    this.selectDevice(devList, originalDeviceLabel);
+    this.selectDevice(devList, originalDeviceLabel, manualSelection);
 
     if(this.activeDevice) {
       // Open the device
@@ -295,14 +296,14 @@ export default class CyberAcousticsService extends VendorImplementation {
     this.changeConnectionStatus({ isConnected: true, isConnecting: false });
   }
 
-  selectDevice (devList: PartialHIDDevice[], originalDeviceLabel : string): boolean {
+  selectDevice (devList: PartialHIDDevice[], originalDeviceLabel: string, manualSelection = false): boolean {
     this.logger.debug("CA: SelectDevice");
 
     const deviceLabel = originalDeviceLabel.toLowerCase();
 
     let deviceFound = false;
     devList.forEach(device => {
-      if (deviceLabel.includes(device?.productName?.toLowerCase())) {
+      if (manualSelection || deviceLabel.includes(device?.productName?.toLowerCase())) {
         for (const collection of device.collections) {
           if ( (collection.usage === HEADSET_USAGE || collection.usage === PHONE_USAGE ) &&
             (collection.usagePage === HEADSET_USAGE_PAGE ))  {

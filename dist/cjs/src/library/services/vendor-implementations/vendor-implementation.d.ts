@@ -10,6 +10,9 @@ export interface ImplementationConfig {
     appName?: string;
     createNew?: boolean;
 }
+export interface ImplementationConnectionOptions {
+    manualProviderSelection?: boolean;
+}
 declare const VendorImplementation_base: new () => StrictEventEmitter<EventEmitter, EmittedHeadsetEvents>;
 export declare abstract class VendorImplementation extends VendorImplementation_base {
     vendorName: string;
@@ -25,7 +28,7 @@ export declare abstract class VendorImplementation extends VendorImplementation_
     isSupported(): boolean;
     abstract get deviceInfo(): DeviceInfo;
     deviceLabelMatchesVendor(label: string): boolean;
-    connect(selectedMicLabel?: string): Promise<any>;
+    connect(selectedMicLabel?: string, options?: ImplementationConnectionOptions): Promise<any>;
     disconnect(clearReason?: UpdateReasons): Promise<any>;
     incomingCall(callInfo: CallInfo, hasOtherActiveCalls?: boolean): Promise<any>;
     outgoingCall(callInfo: CallInfo): Promise<any>;

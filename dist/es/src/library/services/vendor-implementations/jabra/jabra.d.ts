@@ -1,4 +1,4 @@
-import { VendorImplementation, ImplementationConfig } from '../vendor-implementation';
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from '../vendor-implementation';
 import DeviceInfo from '../../../types/device-info';
 import { IApi, CallControlFactory, ICallControl, IDevice } from '@gnaudio/jabra-js';
 import { CallInfo } from '../../..';
@@ -38,10 +38,10 @@ export default class JabraService extends VendorImplementation {
     endCall(conversationId: string, hasOtherActiveCalls: boolean): Promise<void>;
     endAllCalls(): Promise<void>;
     isDeviceInList(device: IDevice, deviceLabel: string): boolean;
-    connect(originalDeviceLabel: string): Promise<void>;
+    connect(originalDeviceLabel?: string, options?: ImplementationConnectionOptions): Promise<void>;
     deviceHasPermissions(deviceLabel: string): Promise<boolean>;
-    getPreviouslyConnectedDevice(deviceLabel: string): Promise<IDevice>;
-    getDeviceFromWebhid(deviceLabel: string): Promise<IDevice>;
+    getPreviouslyConnectedDevice(deviceLabel: string, manualSelection?: boolean): Promise<IDevice>;
+    getDeviceFromWebhid(deviceLabel: string, manualSelection?: boolean): Promise<IDevice>;
     initializeJabraSdk(): Promise<IApi>;
     createCallControlFactory(sdk: IApi): CallControlFactory;
     checkForCallLockError(message: unknown, type: unknown): boolean;
