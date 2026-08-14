@@ -34,6 +34,7 @@ export default class HeadsetService {
   private headsetConversationStates: { [conversationId: string]: HeadsetStateRecord } = {};
   private _headsetEvents$: Subject<ConsumedHeadsetEvents>;
   private logger: any;
+  private implementationTransitionGeneration = 0;
 
   private constructor (config: ImplementationConfig) {
     this._headsetEvents$ = new Subject<ConsumedHeadsetEvents>();
@@ -129,11 +130,17 @@ export default class HeadsetService {
       return;
     }
 
-    if (this.selectedImplementation) {
+    const transitionGeneration = ++this.implementationTransitionGeneration;
+    const previousImplementation = this.selectedImplementation;
+
+    if (previousImplementation) {
       // remove headsetStates associated with implementation
       this.headsetConversationStates = {};
 
-      await this.selectedImplementation.disconnect();
+      await previousImplementation.disconnect();
+      if (transitionGeneration !== this.implementationTransitionGeneration) {
+        return;
+      }
     }
 
     this.selectedImplementation = implementation;
@@ -142,6 +149,12 @@ export default class HeadsetService {
 
     if (implementation) {
       await implementation.connect(deviceLabel);
+      if (
+        transitionGeneration !== this.implementationTransitionGeneration &&
+        this.selectedImplementation !== implementation
+      ) {
+        await implementation.disconnect();
+      }
     }
   }
 
@@ -331,6 +344,8 @@ export default class HeadsetService {
   }
 
   private clearSelectedImplementation (clearReason?: UpdateReasons): void {
+    this.implementationTransitionGeneration++;
+
     if (!this.selectedImplementation) {
       return;
     }

@@ -3,11 +3,16 @@
 This patch line is based on upstream `v2.5.6`, commit
 `35ac7f395068cfec5b72b01a4172bba66aa73bc9`.
 
-It carries three Florence-specific fixes:
+It carries Florence-specific fixes:
 
 1. pass the configured application name into EPOS/Sennheiser registration;
 2. give each EPOS WebSocket attempt explicit ownership and close superseded sockets;
 3. prevent unselected vendor implementations from mutating or publishing headset state.
+4. serialize implementation transitions so a slower vendor switch cannot overwrite a
+   newer selection.
+
+The Jabra SDK is intentionally pinned to `4.4.6`; update it only as an explicit,
+tested dependency change so Papaya and fork installs cannot drift independently.
 
 No npm publication or upstream pull request is expected. The package is marked private,
 and Papaya consumes a full immutable commit over public GitHub HTTPS. Generated `dist/`
@@ -20,6 +25,7 @@ From the repository root:
 
 ```sh
 npm ci
+npm ci --prefix react-app
 npm run lint
 npm test
 npx tsc -p . --noEmit

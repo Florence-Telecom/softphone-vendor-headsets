@@ -17,6 +17,7 @@ export default class HeadsetService {
     private headsetConversationStates;
     private _headsetEvents$;
     private logger;
+    private implementationTransitionGeneration;
     private constructor();
     static getInstance(config: ImplementationConfig): HeadsetService;
     get implementations(): VendorImplementation[];

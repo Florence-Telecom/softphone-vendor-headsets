@@ -25,6 +25,7 @@ const REMOVE_WAIT = 2000;
 class HeadsetService {
     constructor(config) {
         this.headsetConversationStates = {};
+        this.implementationTransitionGeneration = 0;
         this._headsetEvents$ = new rxjs_1.Subject();
         this.headsetEvents$ = this._headsetEvents$.asObservable();
         this.logger = config.logger || console;
@@ -106,15 +107,24 @@ class HeadsetService {
             if (implementation === this.selectedImplementation) {
                 return;
             }
-            if (this.selectedImplementation) {
+            const transitionGeneration = ++this.implementationTransitionGeneration;
+            const previousImplementation = this.selectedImplementation;
+            if (previousImplementation) {
                 // remove headsetStates associated with implementation
                 this.headsetConversationStates = {};
-                yield this.selectedImplementation.disconnect();
+                yield previousImplementation.disconnect();
+                if (transitionGeneration !== this.implementationTransitionGeneration) {
+                    return;
+                }
             }
             this.selectedImplementation = implementation;
             this._headsetEvents$.next({ event: consumed_headset_events_1.HeadsetEvents.implementationChanged, payload: implementation });
             if (implementation) {
                 yield implementation.connect(deviceLabel);
+                if (transitionGeneration !== this.implementationTransitionGeneration &&
+                    this.selectedImplementation !== implementation) {
+                    yield implementation.disconnect();
+                }
             }
         });
     }
@@ -291,6 +301,7 @@ class HeadsetService {
         implementation.on(consumed_headset_events_1.HeadsetEvents.webHidPermissionRequested, this.handleWebHidPermissionRequested.bind(this));
     }
     clearSelectedImplementation(clearReason) {
+        this.implementationTransitionGeneration++;
         if (!this.selectedImplementation) {
             return;
         }

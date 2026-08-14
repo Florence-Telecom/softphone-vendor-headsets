@@ -5,6 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 # [Unreleased](https://github.com/purecloudlabs/softphone-vendor-headsets/compare/v2.5.6...HEAD)
 
+# [2.5.6-florence.2]
+## Fixed
+* Serialize vendor transitions so a slower switch cannot overwrite a newer selection.
+* Pin the validated Jabra SDK dependency instead of allowing runtime drift.
+* Correct the advertised browser bundle filename.
+* Document the deterministic nested test-app install.
+
 # [2.5.6-florence.1]
 ## Fixed
 * Propagate the configured application name to EPOS/Sennheiser registration.

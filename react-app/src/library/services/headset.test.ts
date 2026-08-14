@@ -142,6 +142,47 @@ describe('HeadsetService', () => {
       expect(plantronics.connect).toHaveBeenCalled();
     });
 
+    it('should keep the newest selection when overlapping disconnects finish out of order', async () => {
+      let resolveFirstDisconnect: () => void;
+      let resolveSecondDisconnect: () => void;
+      (plantronics.disconnect as jest.Mock)
+        .mockImplementationOnce(() => new Promise<void>(resolve => { resolveFirstDisconnect = resolve; }))
+        .mockImplementationOnce(() => new Promise<void>(resolve => { resolveSecondDisconnect = resolve; }));
+      const jabraConnect = jest.spyOn(jabra, 'connect').mockResolvedValue();
+      headsetService.selectedImplementation = plantronics;
+
+      const olderTransition = headsetService.changeImplementation(sennheiser, 'EPOS');
+      const newerTransition = headsetService.changeImplementation(jabra, 'Jabra');
+
+      resolveSecondDisconnect();
+      await newerTransition;
+      resolveFirstDisconnect();
+      await olderTransition;
+
+      expect(headsetService.selectedImplementation).toBe(jabra);
+      expect(jabraConnect).toHaveBeenCalledWith('Jabra');
+      expect(sennheiser.connect).not.toHaveBeenCalled();
+    });
+
+    it('should retire a stale implementation that connects after the selection is cleared', async () => {
+      let resolveConnect: () => void;
+      (sennheiser.connect as jest.Mock).mockImplementationOnce(
+        () => new Promise<void>(resolve => { resolveConnect = resolve; })
+      );
+      headsetService.selectedImplementation = plantronics;
+
+      const transition = headsetService.changeImplementation(sennheiser, 'EPOS');
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(headsetService.selectedImplementation).toBe(sennheiser);
+
+      headsetService.activeMicChange('');
+      resolveConnect();
+      await transition;
+
+      expect(headsetService.selectedImplementation).toBeNull();
+      expect(sennheiser.disconnect).toHaveBeenCalledTimes(2);
+    });
+
     it('should trigger implementationChanged event for new implementation', (done) => {
       headsetService.headsetEvents$.subscribe((event) => {
         expect(event.event).toBe('implementationChanged');

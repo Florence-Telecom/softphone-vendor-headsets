@@ -4,7 +4,7 @@ module.exports = (env) => {
   const minimize = env && env.production;
   const mode = minimize ? 'production' : 'development';
 
-  let filename = 'softhphone-vendor-headsets';
+  let filename = 'softphone-vendor-headsets';
   let babelExcludes = [];
   let babelOptions;
   let externals = [];
