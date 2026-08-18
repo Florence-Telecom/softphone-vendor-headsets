@@ -1,5 +1,5 @@
 import { VendorImplementation } from "../services/vendor-implementations/vendor-implementation";
-import { EventInfoWithConversationId, HoldEventInfo, MutedEventInfo, WebHidPermissionRequest } from "./emitted-headset-events";
+import { EventInfoWithConversationId, HoldEventInfo, MutedEventInfo, WebHidPermissionRequest, HeadsetIntegrationStatus } from "./emitted-headset-events";
 
 export enum HeadsetEvents {
     implementationChanged = 'implementationChanged',
@@ -12,6 +12,7 @@ export enum HeadsetEvents {
     webHidPermissionRequested = 'webHidPermissionRequested',
     deviceConnectionStatusChanged = 'deviceConnectionStatusChanged',
     deviceEventLogs = 'deviceEventLogs',
+    integrationStatusChanged = 'integrationStatusChanged',
 }
 
 type Events = {
@@ -24,6 +25,7 @@ type Events = {
     [HeadsetEvents.loggableEvent]: any;
     [HeadsetEvents.webHidPermissionRequested]: WebHidPermissionRequest;
     [HeadsetEvents.deviceConnectionStatusChanged]: DeviceConnectionStatus;
+    [HeadsetEvents.integrationStatusChanged]: HeadsetIntegrationStatus;
 }
 
 export type DeviceConnectionStatus = 'checking' | 'running' | 'notRunning' | 'noVendor';

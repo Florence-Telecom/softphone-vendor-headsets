@@ -6,5 +6,6 @@ export * from './types/device-info';
 export * from './types/emitted-headset-events';
 export * from './types/headset-states';
 export { VendorImplementation };
+export { EposBusylightController, EPOS_BUSYLIGHT_VENDOR_ID, EPOS_BUSYLIGHT_PRODUCT_ID, DEFAULT_BUSYLIGHT_COLORS, } from './services/vendor-implementations/sennheiser/epos-busylight';
 export default HeadsetService;
 //# sourceMappingURL=index.js.map

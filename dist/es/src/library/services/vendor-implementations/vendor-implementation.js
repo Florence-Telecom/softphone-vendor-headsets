@@ -20,6 +20,14 @@ export class VendorImplementation extends EventEmitter {
     get isDeviceAttached() {
         throw new Error(`${this.vendorName} - isDeviceAttatched getter not implemented`);
     }
+    /**
+     * Vendor-neutral session snapshot for implementations that talk to a local native
+     * agent (loopback WebSocket, etc). Returns undefined for vendors that have no
+     * separate registration/login/attachment handshake to report.
+     */
+    get integrationStatus() {
+        return undefined;
+    }
     isSupported() {
         return true;
     }
@@ -93,6 +101,9 @@ export class VendorImplementation extends EventEmitter {
         this.isConnected = headsetState.isConnected;
         this.isConnecting = headsetState.isConnecting;
         this.emitEvent('deviceConnectionStatusChanged', Object.assign({ currentVendor: this }, headsetState));
+    }
+    publishIntegrationStatus(status) {
+        this.emitEvent('integrationStatusChanged', status);
     }
     /**
      * Try to deduct the product id based on the label.

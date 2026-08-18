@@ -13,5 +13,6 @@ var HeadsetEvents;
     HeadsetEvents["webHidPermissionRequested"] = "webHidPermissionRequested";
     HeadsetEvents["deviceConnectionStatusChanged"] = "deviceConnectionStatusChanged";
     HeadsetEvents["deviceEventLogs"] = "deviceEventLogs";
+    HeadsetEvents["integrationStatusChanged"] = "integrationStatusChanged";
 })(HeadsetEvents = exports.HeadsetEvents || (exports.HeadsetEvents = {}));
 //# sourceMappingURL=consumed-headset-events.js.map

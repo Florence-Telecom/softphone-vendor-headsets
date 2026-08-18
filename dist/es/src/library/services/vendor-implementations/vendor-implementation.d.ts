@@ -1,7 +1,7 @@
 import DeviceInfo from '../../types/device-info';
 import StrictEventEmitter from 'strict-event-emitter-types';
 import { EventEmitter } from 'events';
-import { EmittedHeadsetEvents, EventInfo, EventInfoWithConversationId, HoldEventInfo, MutedEventInfo } from '../../types/emitted-headset-events';
+import { EmittedHeadsetEvents, EventInfo, EventInfoWithConversationId, HeadsetIntegrationStatus, HoldEventInfo, MutedEventInfo } from '../../types/emitted-headset-events';
 import { CallInfo } from '../..';
 import { UpdateReasons } from '../../types/headset-states';
 export interface ImplementationConfig {
@@ -25,6 +25,12 @@ export declare abstract class VendorImplementation extends VendorImplementation_
     config: ImplementationConfig;
     constructor(config: ImplementationConfig);
     get isDeviceAttached(): boolean;
+    /**
+     * Vendor-neutral session snapshot for implementations that talk to a local native
+     * agent (loopback WebSocket, etc). Returns undefined for vendors that have no
+     * separate registration/login/attachment handshake to report.
+     */
+    get integrationStatus(): HeadsetIntegrationStatus | undefined;
     isSupported(): boolean;
     abstract get deviceInfo(): DeviceInfo;
     deviceLabelMatchesVendor(label: string): boolean;
@@ -51,6 +57,7 @@ export declare abstract class VendorImplementation extends VendorImplementation_
         isConnected: boolean;
         isConnecting: boolean;
     }): void;
+    publishIntegrationStatus(status: HeadsetIntegrationStatus): void;
     /**
      * Try to deduct the product id based on the label.
      * Making the assumption that the label will end with (vendorid:productid).

@@ -2,6 +2,11 @@ import { VendorImplementation } from '../vendor-implementation';
 import * as utils from '../../../utils';
 import { SennheiserEvents, SennheiserEventTypes } from './types';
 const websocketUri = 'wss://127.0.0.1:41088';
+// Protocol-driven sends (registration/login/system-info bootstrap, best-effort call
+// resets) are fire-and-forget; the caller already surfaces closed-socket failures via
+// the returned promise where it matters (public call-control actions).
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+function ignoreProtocolSendFailure() { }
 export default class SennheiserService extends VendorImplementation {
     constructor() {
         super(...arguments);
@@ -14,12 +19,24 @@ export default class SennheiserService extends VendorImplementation {
         this.websocket = null;
         this.deviceInfo = null;
         this.ignoreAcknowledgement = false;
+        // Explicit session phases, distinct from the base class's isConnected/isConnecting:
+        // those only prove a softphone session, not a headset attachment. Tracking the
+        // finer-grained handshake lets consumers stop conflating "SPLoggedIn" with
+        // "a headset is attached".
+        this.transportState = 'closed';
+        this.registrationStatus = 'none';
+        this.loginStatus = 'loggedOut';
+        this.headsetAttachment = 'unknown';
+        this.systemInformationReceived = false;
+        this.lastProtocolResult = null;
         this.connectionGeneration = 0;
         this.webSocketOnOpen = (socket = this.websocket, generation = this.connectionGeneration) => {
             if (!this.ownsSocket(socket, generation)) {
                 return;
             }
             this.websocketConnected = true;
+            this.transportState = 'open';
+            this._publishIntegrationStatus();
             this.logger.info('websocket open the sennheiser software');
         };
     }
@@ -34,10 +51,22 @@ export default class SennheiserService extends VendorImplementation {
         return ['senn', 'epos'].some(searchVal => lowerLabel.includes(searchVal));
     }
     get deviceName() {
-        return this.deviceInfo && this.deviceInfo.ProductName;
+        var _a;
+        return this.deviceInfo && ((_a = this.deviceInfo.ProductName) !== null && _a !== void 0 ? _a : this.deviceInfo.deviceName);
     }
     get isDeviceAttached() {
         return !!this.deviceInfo;
+    }
+    get integrationStatus() {
+        return {
+            transport: this.transportState,
+            registration: this.registrationStatus,
+            login: this.loginStatus,
+            headsetAttachment: this.headsetAttachment,
+            headsetProductName: this.deviceName || undefined,
+            systemInformationReceived: this.systemInformationReceived,
+            lastProtocolResult: this.lastProtocolResult || undefined,
+        };
     }
     resetHeadsetStateForCall(conversationId) {
         this.ignoreAcknowledgement = true;
@@ -51,11 +80,13 @@ export default class SennheiserService extends VendorImplementation {
     }
     _sendMessage(payload) {
         if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
-            this.logger.warn('Cannot send sennheiser message because the active socket is not open', { event: payload.Event });
-            return;
+            const message = 'Cannot send sennheiser message because the active socket is not open';
+            this.logger.warn(message, { event: payload.Event });
+            return Promise.reject(new Error(message));
         }
         this.logger.debug('sending sennheiser message', payload);
         this.websocket.send(JSON.stringify(payload));
+        return Promise.resolve();
     }
     _registerSoftphone() {
         const payload = {
@@ -68,7 +99,9 @@ export default class SennheiserService extends VendorImplementation {
             MuteSupport: 'Yes',
             DNDOption: 'No',
         };
-        this._sendMessage(payload);
+        this.registrationStatus = 'establishing';
+        this._publishIntegrationStatus();
+        this._sendMessage(payload).catch(ignoreProtocolSendFailure);
     }
     connect() {
         this.retireSocket(this.websocket, this.connectionGeneration, true);
@@ -77,9 +110,11 @@ export default class SennheiserService extends VendorImplementation {
         const socket = new WebSocket(websocketUri);
         const generation = ++this.connectionGeneration;
         this.websocket = socket;
+        this.transportState = 'opening';
         socket.onopen = () => this.webSocketOnOpen(socket, generation);
         socket.onclose = (event) => this.webSocketOnClose(event, socket, generation);
         socket.onmessage = (message) => this._handleMessage(message, socket, generation);
+        this._publishIntegrationStatus();
         return Promise.resolve();
     }
     webSocketOnClose(err, socket = this.websocket, generation = this.connectionGeneration) {
@@ -90,6 +125,7 @@ export default class SennheiserService extends VendorImplementation {
         this.connectionGeneration++;
         this.websocketConnected = false;
         this.deviceInfo = null;
+        this._resetSessionPhases();
         if (!err.wasClean) {
             this.logger.error(err);
         }
@@ -103,81 +139,80 @@ export default class SennheiserService extends VendorImplementation {
         if (this.isConnected || this.isConnecting) {
             this.changeConnectionStatus({ isConnected: false, isConnecting: false });
         }
+        this._publishIntegrationStatus();
     }
     disconnect() {
         this.retireSocket(this.websocket, this.connectionGeneration, true);
         return Promise.resolve();
     }
     setMute(value) {
-        this._sendMessage({
+        return this._sendMessage({
             Event: value ? SennheiserEvents.MuteFromApp : SennheiserEvents.UnmuteFromApp,
             EventType: SennheiserEventTypes.Request,
         });
-        return Promise.resolve();
     }
     setHold(conversationId, value) {
-        this._sendMessage({
+        return this._sendMessage({
             Event: value ? SennheiserEvents.Hold : SennheiserEvents.Resume,
             EventType: SennheiserEventTypes.Request,
             CallID: conversationId,
         });
-        return Promise.resolve();
     }
     incomingCall(callInfo) {
         this.ignoreAcknowledgement = false;
-        this._sendMessage({
+        return this._sendMessage({
             Event: SennheiserEvents.IncomingCall,
             EventType: SennheiserEventTypes.Request,
             CallID: callInfo.conversationId,
         });
-        return Promise.resolve();
     }
     answerCall(conversationId, autoAnswer) {
+        const sends = [];
         if (autoAnswer) {
-            this.incomingCall({ conversationId });
+            sends.push(this.incomingCall({ conversationId }));
         }
-        this._sendMessage({
+        sends.push(this._sendMessage({
             Event: SennheiserEvents.IncomingCallAccepted,
             EventType: SennheiserEventTypes.Request,
             CallID: conversationId,
-        });
-        return Promise.resolve();
+        }));
+        return Promise.all(sends).then(() => undefined);
     }
     rejectCall(conversationId) {
-        this._sendMessage({
+        return this._sendMessage({
             Event: SennheiserEvents.IncomingCallRejected,
             EventType: SennheiserEventTypes.Request,
             CallID: conversationId,
         });
-        return Promise.resolve();
     }
     outgoingCall(callInfo) {
         this.ignoreAcknowledgement = false;
         const { conversationId } = callInfo;
-        this._sendMessage({
+        return this._sendMessage({
             Event: SennheiserEvents.OutgoingCall,
             EventType: SennheiserEventTypes.Request,
             CallID: conversationId,
         });
-        return Promise.resolve();
     }
     endCall(conversationId, hasOtherActiveCalls) {
+        const sends = [];
         if (!hasOtherActiveCalls) {
-            this._sendMessage({
+            // Best-effort reset: a failure here should not mask the primary CallEnded result.
+            sends.push(this._sendMessage({
                 Event: SennheiserEvents.Resume,
                 EventType: SennheiserEventTypes.Request
-            });
-            this._sendMessage({
+            }).catch(ignoreProtocolSendFailure));
+            sends.push(this._sendMessage({
                 Event: SennheiserEvents.UnmuteFromApp,
                 EventType: SennheiserEventTypes.Request,
-            });
+            }).catch(ignoreProtocolSendFailure));
         }
-        this._sendMessage({
+        sends.push(this._sendMessage({
             Event: SennheiserEvents.CallEnded,
             EventType: SennheiserEventTypes.Request,
             CallID: conversationId,
-        });
-        return Promise.resolve();
+        }));
+        return Promise.all(sends).then(() => undefined);
     }
     endAllCalls() {
         this.logger.warn('There is no functionality defined for SennheiserService.endAllCalls()');
@@ -199,6 +234,14 @@ export default class SennheiserService extends VendorImplementation {
         this.logger.debug('incoming sennheiser message', payload);
         if (payload.ReturnCode) {
             this._handleError(payload);
+            this.lastProtocolResult = { event: payload.Event || 'unknown', outcome: 'rejected' };
+            if (payload.Event === SennheiserEvents.EstablishConnection) {
+                this.registrationStatus = 'rejected';
+            }
+            else if (payload.Event === SennheiserEvents.SPLogin) {
+                this.loginStatus = 'rejected';
+            }
+            this._publishIntegrationStatus();
             return;
         }
         const conversationId = payload.CallID;
@@ -208,31 +251,50 @@ export default class SennheiserService extends VendorImplementation {
                     this._registerSoftphone();
                     break;
                 case SennheiserEvents.EstablishConnection:
+                    this.registrationStatus = 'established';
+                    this.loginStatus = 'loggingIn';
+                    this.lastProtocolResult = { event: payload.Event, outcome: 'success' };
+                    this._publishIntegrationStatus();
                     this._sendMessage({
                         Event: SennheiserEvents.SPLogin,
                         EventType: SennheiserEventTypes.Request,
-                    });
+                    }).catch(ignoreProtocolSendFailure);
                     break;
                 case SennheiserEvents.SPLogin:
                     if (!this.isConnected || this.isConnecting) {
                         this.changeConnectionStatus({ isConnected: true, isConnecting: false });
                     }
+                    this.loginStatus = 'loggedIn';
+                    this.lastProtocolResult = { event: payload.Event, outcome: 'success' };
+                    this._publishIntegrationStatus();
                     this._sendMessage({
                         Event: SennheiserEvents.SystemInformation,
                         EventType: SennheiserEventTypes.Request,
-                    });
+                    }).catch(ignoreProtocolSendFailure);
+                    break;
+                case SennheiserEvents.SystemInformation:
+                    // The EPOS 8.6 loopback SystemInformation response has not been documented
+                    // against a known schema. Only record that a response arrived; do not guess
+                    // at device fields from it.
+                    this.systemInformationReceived = true;
+                    this._publishIntegrationStatus();
                     break;
                 case SennheiserEvents.HeadsetConnected:
                     if (payload.HeadsetName) {
                         this.deviceInfo = {
+                            ProductName: payload.HeadsetName,
                             deviceName: payload.HeadsetName,
                             headsetType: payload.HeadsetType,
                         };
+                        this.headsetAttachment = 'attached';
+                        this._publishIntegrationStatus();
                     }
                     break;
                 case SennheiserEvents.HeadsetDisconnected:
                     if (payload.HeadsetName === this.deviceName) {
                         this.deviceInfo = null;
+                        this.headsetAttachment = 'detached';
+                        this._publishIntegrationStatus();
                     }
                     break;
                 case SennheiserEvents.IncomingCallAccepted:
@@ -265,7 +327,7 @@ export default class SennheiserService extends VendorImplementation {
                         this._sendMessage({
                             Event: SennheiserEvents.UnmuteFromApp,
                             EventType: SennheiserEventTypes.Request,
-                        });
+                        }).catch(ignoreProtocolSendFailure);
                         this.deviceEndedCall({ name: payload.Event, conversationId });
                     }
                     break;
@@ -289,6 +351,17 @@ export default class SennheiserService extends VendorImplementation {
     ownsSocket(socket, generation) {
         return socket === this.websocket && generation === this.connectionGeneration;
     }
+    _resetSessionPhases() {
+        this.transportState = 'closed';
+        this.registrationStatus = 'none';
+        this.loginStatus = 'loggedOut';
+        this.headsetAttachment = 'unknown';
+        this.systemInformationReceived = false;
+        this.lastProtocolResult = null;
+    }
+    _publishIntegrationStatus() {
+        this.publishIntegrationStatus(this.integrationStatus);
+    }
     retireSocket(socket, generation, sendTerminate) {
         if (!socket || !this.ownsSocket(socket, generation)) {
             if (!socket && (this.isConnected || this.isConnecting)) {
@@ -300,6 +373,7 @@ export default class SennheiserService extends VendorImplementation {
         this.connectionGeneration++;
         this.websocketConnected = false;
         this.deviceInfo = null;
+        this._resetSessionPhases();
         if (sendTerminate && socket.readyState === WebSocket.OPEN) {
             try {
                 socket.send(JSON.stringify({
@@ -322,6 +396,7 @@ export default class SennheiserService extends VendorImplementation {
         if (this.isConnected || this.isConnecting) {
             this.changeConnectionStatus({ isConnected: false, isConnecting: false });
         }
+        this._publishIntegrationStatus();
     }
 }
 //# sourceMappingURL=sennheiser.js.map

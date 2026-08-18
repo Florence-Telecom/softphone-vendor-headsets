@@ -8,7 +8,7 @@ import JabraNativeService from './vendor-implementations/jabra/jabra-native/jabr
 import YealinkService from './vendor-implementations/yealink/yealink';
 import VBetService from './vendor-implementations/vbet/vbet';
 import { CallInfo } from '../types/call-info';
-import { VendorEvent, HoldEventInfo, MutedEventInfo, EventInfoWithConversationId } from '../types/emitted-headset-events';
+import { VendorEvent, HoldEventInfo, MutedEventInfo, EventInfoWithConversationId, HeadsetIntegrationStatus } from '../types/emitted-headset-events';
 import { WebHidPermissionRequest } from '..';
 import { ConsumedHeadsetEvents, HeadsetEvents, DeviceConnectionStatus } from '../types/consumed-headset-events';
 import { HeadsetState, HeadsetStateRecord, UpdateReasons } from '../types/headset-states';
@@ -311,6 +311,10 @@ export default class HeadsetService {
     return this.selectedImplementation.connect(micLabel, options);
   }
 
+  integrationStatus (): HeadsetIntegrationStatus | undefined {
+    return this.selectedImplementation?.integrationStatus;
+  }
+
   connectionStatus (): DeviceConnectionStatus {
     if (this.selectedImplementation) {
       if (!this.selectedImplementation.isConnected && !this.selectedImplementation.isConnecting) {
@@ -348,6 +352,7 @@ export default class HeadsetService {
     implementation.on(HeadsetEvents.deviceEventLogs, this.handleDeviceLogs.bind(this));
     implementation.on(HeadsetEvents.deviceConnectionStatusChanged, this.handleDeviceConnectionStatusChanged.bind(this));
     implementation.on(HeadsetEvents.webHidPermissionRequested, this.handleWebHidPermissionRequested.bind(this));
+    implementation.on(HeadsetEvents.integrationStatusChanged, this.handleIntegrationStatusChanged.bind(this));
   }
 
   private clearSelectedImplementation (clearReason?: UpdateReasons): void {
@@ -476,6 +481,14 @@ export default class HeadsetService {
 
     this.logger.debug('Requesting Webhid Permissions');
     this._headsetEvents$.next({ event: HeadsetEvents.webHidPermissionRequested, payload: { ...event.body } });
+  }
+
+  private handleIntegrationStatusChanged (event: VendorEvent<HeadsetIntegrationStatus>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
+    this._headsetEvents$.next({ event: HeadsetEvents.integrationStatusChanged, payload: { ...event.body } });
   }
 
   /* This function has no functional purpose in a real life example

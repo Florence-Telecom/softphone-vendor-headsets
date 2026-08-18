@@ -1,6 +1,7 @@
 import { Observable } from 'rxjs';
 import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from './vendor-implementations/vendor-implementation';
 import { CallInfo } from '../types/call-info';
+import { HeadsetIntegrationStatus } from '../types/emitted-headset-events';
 import { ConsumedHeadsetEvents, DeviceConnectionStatus } from '../types/consumed-headset-events';
 import { UpdateReasons } from '../types/headset-states';
 export default class HeadsetService {
@@ -37,6 +38,7 @@ export default class HeadsetService {
     endCall(conversationId: string, hasOtherActiveCalls?: boolean): Promise<any>;
     endAllCalls(): Promise<any>;
     retryConnection(micLabel: string, options?: ImplementationConnectionOptions): Promise<void>;
+    integrationStatus(): HeadsetIntegrationStatus | undefined;
     connectionStatus(): DeviceConnectionStatus;
     resetHeadsetStateForCall(conversationId: string): Promise<any>;
     private getConnectedImpl;
@@ -51,6 +53,7 @@ export default class HeadsetService {
     private handleDeviceConnectionStatusChanged;
     private publishConnectionStatus;
     private handleWebHidPermissionRequested;
+    private handleIntegrationStatusChanged;
     private handleDeviceLogs;
     private isEventFromSelectedImplementation;
 }

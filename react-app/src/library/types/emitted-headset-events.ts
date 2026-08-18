@@ -9,6 +9,7 @@ export interface EmittedHeadsetEvents {
   deviceEventLogs: VendorEvent<any>;
   webHidPermissionRequested: VendorEvent<WebHidPermissionRequest>;
   deviceConnectionStatusChanged: VendorEvent<any>;
+  integrationStatusChanged: VendorEvent<HeadsetIntegrationStatus>;
 }
 
 export type VendorEvent<Type> = {
@@ -38,4 +39,26 @@ export interface HoldEventInfo extends EventInfoWithConversationId {
 
 export interface WebHidPermissionRequest {
   callback: any
+}
+
+export type HeadsetTransportStatus = 'closed' | 'opening' | 'open';
+export type HeadsetRegistrationStatus = 'none' | 'establishing' | 'established' | 'rejected';
+export type HeadsetLoginStatus = 'loggedOut' | 'loggingIn' | 'loggedIn' | 'rejected';
+export type HeadsetAttachmentStatus = 'unknown' | 'attached' | 'detached';
+
+export interface HeadsetProtocolResult {
+  event: string;
+  outcome: 'success' | 'rejected' | 'timeout';
+}
+
+// Vendor-neutral session snapshot. Only the loopback-based vendors (currently EPOS)
+// populate this; implementations without a native-agent handshake leave it undefined.
+export interface HeadsetIntegrationStatus {
+  transport: HeadsetTransportStatus;
+  registration: HeadsetRegistrationStatus;
+  login: HeadsetLoginStatus;
+  headsetAttachment: HeadsetAttachmentStatus;
+  headsetProductName?: string;
+  systemInformationReceived: boolean;
+  lastProtocolResult?: HeadsetProtocolResult;
 }

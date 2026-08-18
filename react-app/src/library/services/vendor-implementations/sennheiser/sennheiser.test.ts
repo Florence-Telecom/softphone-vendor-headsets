@@ -64,6 +64,7 @@ describe('SennheiserService', () => {
   describe('resetHeadsetStateForCall', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
     it('should set ignoreAcknowledgement and call endCall function', () => {
       const endCallSpy = jest.spyOn(sennheiserService, 'endCall');
@@ -264,6 +265,7 @@ describe('SennheiserService', () => {
   describe('setMute', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
 
     it('should call _sendMessage with a payload using SennheiserEvents.MuteFromApp when the value argument is defined', async () => {
@@ -295,6 +297,7 @@ describe('SennheiserService', () => {
   describe('setHold', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
 
     it('should call _sendMessage with a payload using SennheiserEvents.Hold when the value argument is defined', async () => {
@@ -330,6 +333,7 @@ describe('SennheiserService', () => {
   describe('incomingCall', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
 
     it('should call _sendMessage with a payload using SennheiserEvents.IncomingCall and the generated callId and reset ignoreAcknowledgement', async () => {
@@ -360,6 +364,7 @@ describe('SennheiserService', () => {
   describe('answerCall', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
 
     it('should call _sendMessage with a payload using SennheiserEvents.CallEnded', async () => {
@@ -397,6 +402,7 @@ describe('SennheiserService', () => {
   describe('rejectCall', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
 
     it('should call _sendMessage with a payload using SennheiserEvents.CallEnded', async () => {
@@ -417,6 +423,7 @@ describe('SennheiserService', () => {
   describe('outgoingCall', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
 
     it('should call _sendMessage with a payload using SennheiserEvents.OutgoingCall and reset ignoreAcknowledgement', async () => {
@@ -446,6 +453,7 @@ describe('SennheiserService', () => {
   describe('endCall', () => {
     beforeEach(() => {
       sennheiserService.websocket = createMockWebSocket();
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
     });
 
     it('should call _sendMessage with a payload using SennheiserEvents.CallEnded', async () => {
@@ -530,7 +538,7 @@ describe('SennheiserService', () => {
       jest.spyOn(sennheiserService, '_handleAck');
       jest.spyOn(sennheiserService, '_handleError');
       jest.spyOn(sennheiserService, '_registerSoftphone');
-      sennheiserService._sendMessage = jest.fn();
+      sennheiserService._sendMessage = jest.fn().mockResolvedValue(undefined);
       jest.spyOn(sennheiserService, 'deviceAnsweredCall');
       jest.spyOn(sennheiserService, 'deviceEndedCall');
       jest.spyOn(sennheiserService, 'deviceHoldStatusChanged');
@@ -621,6 +629,7 @@ describe('SennheiserService', () => {
         };
         sennheiserService.deviceInfo = null;
         const expectedDeviceInfo: DeviceInfo = {
+          ProductName: name,
           deviceName: name,
           headsetType: type,
         };
@@ -628,6 +637,8 @@ describe('SennheiserService', () => {
         sennheiserService._handleMessage(message);
 
         expect(sennheiserService.deviceInfo).toEqual(expectedDeviceInfo);
+        expect(sennheiserService.deviceName).toEqual(name);
+        expect(sennheiserService.headsetAttachment).toEqual('attached');
       });
 
       it('should not change deviceInfo if payload.HeadsetName is undefined', () => {
@@ -654,10 +665,36 @@ describe('SennheiserService', () => {
           }`,
         };
         sennheiserService.deviceInfo = { ProductName: testDeviceName };
+        sennheiserService.headsetAttachment = 'attached';
 
         sennheiserService._handleMessage(message);
 
         expect(sennheiserService.deviceInfo).toBeNull();
+        expect(sennheiserService.headsetAttachment).toEqual('detached');
+      });
+
+      it('clears a device that was attached via the deviceName-only shape (regression for the ProductName/deviceName mismatch)', () => {
+        const testDeviceName = 'Test Device';
+        const connectMessage = {
+          data: `{
+            "Event": "${SennheiserEvents.HeadsetConnected}",
+            "HeadsetName": "${testDeviceName}"
+          }`,
+        };
+        const disconnectMessage = {
+          data: `{
+            "Event": "${SennheiserEvents.HeadsetDisconnected}",
+            "HeadsetName": "${testDeviceName}"
+          }`,
+        };
+        sennheiserService.deviceInfo = null;
+
+        sennheiserService._handleMessage(connectMessage);
+        expect(sennheiserService.deviceName).toEqual(testDeviceName);
+
+        sennheiserService._handleMessage(disconnectMessage);
+        expect(sennheiserService.deviceInfo).toBeNull();
+        expect(sennheiserService.headsetAttachment).toEqual('detached');
       });
 
       it('should NOT set deviceInfo to null if the HeadsetName on the payload is the different than the currently set deviceName', () => {
@@ -1109,13 +1146,13 @@ describe('SennheiserService', () => {
       EventType: SennheiserEventTypes.Request
     };
 
-    it('should safely no-op without an open socket', () => {
+    it('should reject rather than falsely reporting success without an open socket', async () => {
       sennheiserService.websocket = null;
-      expect(() => sennheiserService._sendMessage(payload)).not.toThrow();
+      await expect(sennheiserService._sendMessage(payload)).rejects.toThrow();
 
       sennheiserService.websocket = createMockWebSocket() as WebSocket;
       (sennheiserService.websocket as any).readyState = WebSocket.CONNECTING;
-      expect(() => sennheiserService._sendMessage(payload)).not.toThrow();
+      await expect(sennheiserService._sendMessage(payload)).rejects.toThrow();
     });
 
     it('should send through the current open socket', () => {
@@ -1126,6 +1163,114 @@ describe('SennheiserService', () => {
       sennheiserService._sendMessage(payload);
 
       expect(sennheiserService.websocket.send).toHaveBeenCalledWith(JSON.stringify(payload));
+    });
+  });
+
+  describe('session phases and integration status', () => {
+    beforeEach(() => {
+      sennheiserService.websocket = createMockWebSocket() as WebSocket;
+      (sennheiserService.websocket as any).readyState = WebSocket.OPEN;
+      sennheiserService.websocket.send = jest.fn();
+    });
+
+    it('defaults to a disconnected, unattached snapshot', () => {
+      expect(sennheiserService.integrationStatus).toEqual({
+        transport: 'closed',
+        registration: 'none',
+        login: 'loggedOut',
+        headsetAttachment: 'unknown',
+        headsetProductName: undefined,
+        systemInformationReceived: false,
+        lastProtocolResult: undefined,
+      });
+    });
+
+    it('advances registration and login on a successful handshake and requests SystemInformation', () => {
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.EstablishConnection}" }` });
+      expect(sennheiserService.registrationStatus).toEqual('established');
+      expect(sennheiserService.loginStatus).toEqual('loggingIn');
+
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.SPLogin}" }` });
+      expect(sennheiserService.loginStatus).toEqual('loggedIn');
+      expect(sennheiserService.systemInformationReceived).toBe(false);
+
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.SystemInformation}" }` });
+      expect(sennheiserService.systemInformationReceived).toBe(true);
+    });
+
+    it('a logged-in agent with no HeadsetConnected notification stays attachment: unknown', () => {
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.EstablishConnection}" }` });
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.SPLogin}" }` });
+
+      expect(sennheiserService.loginStatus).toEqual('loggedIn');
+      expect(sennheiserService.headsetAttachment).toEqual('unknown');
+    });
+
+    it('rejects registration when EstablishConnection returns a non-zero ReturnCode', () => {
+      sennheiserService._handleMessage({
+        data: JSON.stringify({ Event: SennheiserEvents.EstablishConnection, ReturnCode: 1 }),
+      });
+
+      expect(sennheiserService.registrationStatus).toEqual('rejected');
+      expect(sennheiserService.lastProtocolResult).toEqual({
+        event: SennheiserEvents.EstablishConnection,
+        outcome: 'rejected',
+      });
+    });
+
+    it('rejects login when SPLoggedIn returns a non-zero ReturnCode', () => {
+      sennheiserService._handleMessage({
+        data: JSON.stringify({ Event: SennheiserEvents.SPLogin, ReturnCode: 1 }),
+      });
+
+      expect(sennheiserService.loginStatus).toEqual('rejected');
+      expect(sennheiserService.lastProtocolResult).toEqual({
+        event: SennheiserEvents.SPLogin,
+        outcome: 'rejected',
+      });
+    });
+
+    it('resets every session phase when the socket is retired', async () => {
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.EstablishConnection}" }` });
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.SPLogin}" }` });
+      sennheiserService._handleMessage({
+        data: `{ "Event": "${SennheiserEvents.HeadsetConnected}", "HeadsetName": "D 10" }`,
+      });
+      expect(sennheiserService.headsetAttachment).toEqual('attached');
+
+      await sennheiserService.disconnect();
+
+      expect(sennheiserService.integrationStatus).toEqual({
+        transport: 'closed',
+        registration: 'none',
+        login: 'loggedOut',
+        headsetAttachment: 'unknown',
+        headsetProductName: undefined,
+        systemInformationReceived: false,
+        lastProtocolResult: undefined,
+      });
+    });
+
+    it('publishes an integrationStatusChanged event on every session-phase transition', () => {
+      const listener = jest.fn();
+      sennheiserService.on('integrationStatusChanged', listener);
+
+      sennheiserService._handleMessage({ data: `{ "Event": "${SennheiserEvents.EstablishConnection}" }` });
+
+      expect(listener).toHaveBeenCalled();
+      const lastEvent = listener.mock.calls[listener.mock.calls.length - 1][0];
+      expect(lastEvent.body.registration).toEqual('established');
+    });
+  });
+
+  describe('closed-socket action rejection', () => {
+    it('rejects call actions instead of resolving when the socket is not open', async () => {
+      sennheiserService.websocket = null;
+
+      await expect(sennheiserService.setMute(true)).rejects.toThrow();
+      await expect(sennheiserService.incomingCall({ conversationId: '1' })).rejects.toThrow();
+      await expect(sennheiserService.answerCall('1')).rejects.toThrow();
+      await expect(sennheiserService.endCall('1', true)).rejects.toThrow();
     });
   });
 });

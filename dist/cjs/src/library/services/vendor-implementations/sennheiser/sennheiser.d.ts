@@ -1,5 +1,6 @@
 import { VendorImplementation, ImplementationConfig } from '../vendor-implementation';
 import DeviceInfo from '../../../types/device-info';
+import { HeadsetAttachmentStatus, HeadsetIntegrationStatus, HeadsetLoginStatus, HeadsetProtocolResult, HeadsetRegistrationStatus, HeadsetTransportStatus } from '../../../types/emitted-headset-events';
 import { CallInfo } from '../../..';
 import { SennheiserPayload } from './types';
 export default class SennheiserService extends VendorImplementation {
@@ -13,15 +14,22 @@ export default class SennheiserService extends VendorImplementation {
     websocket: WebSocket;
     deviceInfo: DeviceInfo;
     ignoreAcknowledgement: boolean;
+    transportState: HeadsetTransportStatus;
+    registrationStatus: HeadsetRegistrationStatus;
+    loginStatus: HeadsetLoginStatus;
+    headsetAttachment: HeadsetAttachmentStatus;
+    systemInformationReceived: boolean;
+    lastProtocolResult: HeadsetProtocolResult;
     private connectionGeneration;
     static getInstance(config: ImplementationConfig): SennheiserService;
     deviceLabelMatchesVendor(label: string): boolean;
     get deviceName(): string;
     get isDeviceAttached(): boolean;
+    get integrationStatus(): HeadsetIntegrationStatus;
     resetHeadsetStateForCall(conversationId: string): Promise<any>;
     _handleError(payload: SennheiserPayload): void;
     _handleAck(payload: SennheiserPayload): void;
-    _sendMessage(payload: SennheiserPayload): void;
+    _sendMessage(payload: SennheiserPayload): Promise<void>;
     _registerSoftphone(): void;
     connect(): Promise<void>;
     webSocketOnOpen: (socket?: WebSocket, generation?: number) => void;
@@ -43,5 +51,7 @@ export default class SennheiserService extends VendorImplementation {
         data: string;
     }, socket?: WebSocket, generation?: number): void;
     private ownsSocket;
+    private _resetSessionPhases;
+    private _publishIntegrationStatus;
     private retireSocket;
 }

@@ -265,6 +265,10 @@ class HeadsetService {
         }
         return this.selectedImplementation.connect(micLabel, options);
     }
+    integrationStatus() {
+        var _a;
+        return (_a = this.selectedImplementation) === null || _a === void 0 ? void 0 : _a.integrationStatus;
+    }
     connectionStatus() {
         if (this.selectedImplementation) {
             if (!this.selectedImplementation.isConnected && !this.selectedImplementation.isConnecting) {
@@ -299,6 +303,7 @@ class HeadsetService {
         implementation.on(consumed_headset_events_1.HeadsetEvents.deviceEventLogs, this.handleDeviceLogs.bind(this));
         implementation.on(consumed_headset_events_1.HeadsetEvents.deviceConnectionStatusChanged, this.handleDeviceConnectionStatusChanged.bind(this));
         implementation.on(consumed_headset_events_1.HeadsetEvents.webHidPermissionRequested, this.handleWebHidPermissionRequested.bind(this));
+        implementation.on(consumed_headset_events_1.HeadsetEvents.integrationStatusChanged, this.handleIntegrationStatusChanged.bind(this));
     }
     clearSelectedImplementation(clearReason) {
         this.implementationTransitionGeneration++;
@@ -399,6 +404,12 @@ class HeadsetService {
         }
         this.logger.debug('Requesting Webhid Permissions');
         this._headsetEvents$.next({ event: consumed_headset_events_1.HeadsetEvents.webHidPermissionRequested, payload: Object.assign({}, event.body) });
+    }
+    handleIntegrationStatusChanged(event) {
+        if (!this.isEventFromSelectedImplementation(event)) {
+            return;
+        }
+        this._headsetEvents$.next({ event: consumed_headset_events_1.HeadsetEvents.integrationStatusChanged, payload: Object.assign({}, event.body) });
     }
     /* This function has no functional purpose in a real life example
      * It is here to help log all events in the call process at least for Plantronics
