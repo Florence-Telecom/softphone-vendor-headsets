@@ -183,6 +183,7 @@ Monkey-patches `sendReport` to log all outgoing commands in real-time while usin
 | Poly/Plantronics | `0x047F` | Uses HTTP API, not WebHID |
 | CyberAcoustics | `0x289B` | |
 | VBet | `0x3503` | |
+| Anker | `0x291A` | Call button sends the same report on every press (no release) |
 
 ---
 

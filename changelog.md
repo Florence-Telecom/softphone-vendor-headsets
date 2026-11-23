@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 * [STREAM-1048](https://inindca.atlassian.net/browse/STREAM-1688) - Added additional logging to hopefully help with debugging in the future
 * [STREAM-1795](https://inindca.atlassian.net/browse/STREAM-1795) - Added in new implementation for Poly HP devices that use WebHID as opposed to secondary application
+* [no-jira] Added WebHID support for Anker PowerConf speakerphones (S330). The call button is stateless, so a press answers a ringing call or ends the active one.
 
 # [v3.0.3](https://github.com/purecloudlabs/softphone-vendor-headsets/compare/v3.0.2...v3.0.3)
 ## Fixed

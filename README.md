@@ -17,6 +17,9 @@ As of 2/12/24 we now support:
 - VBeT
 - CyberAcoustics
 
+We now also support:
+- Anker PowerConf (WebHID, tested with the PowerConf S330)
+
 ## Installation
 
 ``` sh

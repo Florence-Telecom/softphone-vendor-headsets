@@ -17,6 +17,7 @@ export interface ImplementationConfig {
   useWebHidOnDesktopYealink?: boolean;
   useWebHidOnDesktopVbet?: boolean;
   useWebHidOnDesktopCyberAcoustics?: boolean;
+  useWebHidOnDesktopAnker?: boolean;
   useNewPolyImplementation?: boolean;
 }
 
