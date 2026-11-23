@@ -6,14 +6,23 @@ import { CallInfo } from '../..';
 import { UpdateReasons } from '../../types/headset-states';
 export interface ImplementationConfig {
     logger: any;
+    hostedContext?: any;
     vendorName?: string;
     appName?: string;
     createNew?: boolean;
+    useWebHidOnDesktopJabra?: boolean;
+    useWebHidOnDesktopYealink?: boolean;
+    useWebHidOnDesktopVbet?: boolean;
+    useWebHidOnDesktopCyberAcoustics?: boolean;
+    useWebHidOnDesktopAnker?: boolean;
+    useNewPolyImplementation?: boolean;
 }
 export interface ImplementationConnectionOptions {
     manualProviderSelection?: boolean;
 }
-declare const VendorImplementation_base: new () => StrictEventEmitter<EventEmitter, EmittedHeadsetEvents>;
+declare const VendorImplementation_base: {
+    new (): StrictEventEmitter<EventEmitter, EmittedHeadsetEvents>;
+};
 export declare abstract class VendorImplementation extends VendorImplementation_base {
     vendorName: string;
     isConnecting: boolean;

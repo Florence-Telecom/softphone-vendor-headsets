@@ -13,9 +13,8 @@ export default class JabraNativeService extends VendorImplementation {
     pendingConversationId: string;
     activeConversationId: string;
     pendingConversationIsOutbound: boolean;
+    config: ImplementationConfig;
     private constructor();
-    private isHostedContextInitialized;
-    private waitForHostedContext;
     private setupNativeHandlers;
     static getInstance(config: ImplementationConfig): JabraNativeService;
     get deviceInfo(): DeviceInfo;

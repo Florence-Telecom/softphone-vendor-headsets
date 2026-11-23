@@ -7,7 +7,7 @@ var JabraNativeCommands;
     JabraNativeCommands["Offhook"] = "offhook";
     JabraNativeCommands["Mute"] = "mute";
     JabraNativeCommands["Hold"] = "hold";
-})(JabraNativeCommands = exports.JabraNativeCommands || (exports.JabraNativeCommands = {}));
+})(JabraNativeCommands || (exports.JabraNativeCommands = JabraNativeCommands = {}));
 exports.HeadsetEvent = 'JabraEvent';
 exports.DeviceEvent = 'JabraDeviceAttached';
 var JabraNativeEventNames;
@@ -16,5 +16,5 @@ var JabraNativeEventNames;
     JabraNativeEventNames["Mute"] = "Mute";
     JabraNativeEventNames["Hold"] = "Flash";
     JabraNativeEventNames["RejectCall"] = "RejectCall";
-})(JabraNativeEventNames = exports.JabraNativeEventNames || (exports.JabraNativeEventNames = {}));
+})(JabraNativeEventNames || (exports.JabraNativeEventNames = JabraNativeEventNames = {}));
 //# sourceMappingURL=types.js.map

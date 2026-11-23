@@ -4,12 +4,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requestCefPromise = exports.isCefHosted = exports.debounce = exports.timedPromise = exports.isFirefox = void 0;
+exports.isFirefox = isFirefox;
+exports.timedPromise = timedPromise;
+exports.debounce = debounce;
+exports.checkWebHidSupport = checkWebHidSupport;
+exports.isCefHosted = isCefHosted;
+exports.requestCefPromise = requestCefPromise;
 const browserama_1 = __importDefault(require("browserama"));
 function isFirefox() {
     return browserama_1.default.isFireFox;
 }
-exports.isFirefox = isFirefox;
 /**
  *
  * @param promise
@@ -32,7 +36,6 @@ function timedPromise(promise, timeoutInMillis, timeoutError) {
     });
     return Promise.race([promise, timeoutPromise]);
 }
-exports.timedPromise = timedPromise;
 function debounce(func, delay) {
     let timer = null;
     return function () {
@@ -42,11 +45,22 @@ function debounce(func, delay) {
         }, delay);
     };
 }
-exports.debounce = debounce;
+function checkWebHidSupport(config, vendor) {
+    const featureToggleForVendor = Object.keys(config).find(key => {
+        return key.toLowerCase().includes(vendor);
+    });
+    if (isCefHosted()) {
+        if (config[featureToggleForVendor]) {
+            return config.hostedContext.supportsWebHid();
+        }
+    }
+    else {
+        return !!window.navigator.hid;
+    }
+}
 function isCefHosted() {
     return !!window._HostedContextFunctions;
 }
-exports.isCefHosted = isCefHosted;
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 function requestCefPromise(cmd) {
     /* eslint-enable */
@@ -76,5 +90,4 @@ function requestCefPromise(cmd) {
         }
     });
 }
-exports.requestCefPromise = requestCefPromise;
 //# sourceMappingURL=utils.js.map

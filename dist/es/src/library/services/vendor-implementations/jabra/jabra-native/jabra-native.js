@@ -14,6 +14,7 @@ const connectTimeout = 5000;
 const offHookThrottleTime = 500;
 export default class JabraNativeService extends VendorImplementation {
     constructor(config) {
+        var _a;
         super(config);
         this.isActive = false;
         this.devices = null;
@@ -21,35 +22,16 @@ export default class JabraNativeService extends VendorImplementation {
         this.headsetState = null;
         this.ignoreNextOffhookEvent = false;
         this.cefSupportsJabra = true;
+        this.config = config;
         this.vendorName = 'Jabra';
         this.headsetState = { ringing: false, offHook: false };
         this.devices = new Map();
-        if (isCefHosted()) {
-            if (this.isHostedContextInitialized()) {
-                this.setupNativeHandlers();
-            }
-            else {
-                this.waitForHostedContext();
-            }
+        if (isCefHosted() && ((_a = this.config.hostedContext) === null || _a === void 0 ? void 0 : _a.isHosted())) {
+            this.setupNativeHandlers();
         }
     }
-    isHostedContextInitialized() {
-        var _a;
-        return (_a = window.Orgspan) === null || _a === void 0 ? void 0 : _a.serviceFor('application').get('hostedContext').isHosted();
-    }
-    waitForHostedContext() {
-        setTimeout(() => {
-            if (this.isHostedContextInitialized()) {
-                this.setupNativeHandlers();
-            }
-            else {
-                this.waitForHostedContext();
-            }
-        }, 500);
-    }
     setupNativeHandlers() {
-        var _a;
-        const hostedContext = (_a = window.Orgspan) === null || _a === void 0 ? void 0 : _a.serviceFor('application').get('hostedContext');
+        const hostedContext = this.config.hostedContext;
         this.cefSupportsJabra = hostedContext.supportsJabra();
         hostedContext.on('JabraEvent', this.handleJabraEvent.bind(this));
         hostedContext.on('JabraDeviceAttached', this.handleJabraDeviceAttached.bind(this));
@@ -145,10 +127,10 @@ export default class JabraNativeService extends VendorImplementation {
         this.setMute(false);
     }
     _sendCmd(cmd, value) {
-        const deviceId = this.activeDeviceId;
-        this.logger.debug('Sending command to headset', { deviceId, cmd, value });
-        window._HostedContextFunctions.sendEventToDesktop('jabraEvent', {
-            deviceID: deviceId,
+        const deviceID = this.activeDeviceId;
+        this.logger.debug('Sending command to headset', { deviceID, cmd, value });
+        this.config.hostedContext.sendEventToDesktop('jabraEvent', {
+            deviceID,
             event: cmd,
             value
         });
@@ -158,7 +140,7 @@ export default class JabraNativeService extends VendorImplementation {
         this.headsetState.ringing = value;
     }
     isSupported() {
-        return isCefHosted() && this.cefSupportsJabra;
+        return isCefHosted() && this.cefSupportsJabra && !this.config.useWebHidOnDesktopJabra;
     }
     deviceLabelMatchesVendor(label) {
         const lowerLabel = label.toLowerCase();
@@ -248,26 +230,32 @@ export default class JabraNativeService extends VendorImplementation {
     _processEvent(eventName, value) {
         switch (eventName) {
             case JabraNativeEventNames.OffHook:
+                this.logger.debug(`Received hook switch event from device: ${value ? 'Off hook' : 'On hook'}`);
                 debounce(() => this._handleOffhookEvent(value), offHookThrottleTime)();
                 break;
             case JabraNativeEventNames.RejectCall:
+                this.logger.debug('Received reject call event from device');
                 this.deviceRejectedCall({ name: JabraNativeEventNames.RejectCall, conversationId: this.pendingConversationId });
                 break;
             case JabraNativeEventNames.Mute:
+                this.logger.debug(`Received mute state toggle event from device: ${value ? 'Muting call' : 'Unmuting call'}`);
                 this._handleMuteEvent(value);
                 break;
             case JabraNativeEventNames.Hold:
+                this.logger.debug(`Received hold state toggle event from device: ${value ? 'Holding call' : 'Resuming held call'}`);
                 this._handleHoldEvent(value);
                 break;
         }
     }
     connect() {
+        this.logger.debug('Attempting to connect to Jabra Native implementation');
         this.changeConnectionStatus({ isConnected: false, isConnecting: true });
         return timedPromise(this.updateDevices(), connectTimeout).catch(err => {
             this.logger.error('Failed to connect to Jabra', err);
         });
     }
     disconnect() {
+        this.logger.debug('Attempting to disconnect to Jabra Native implementation');
         this.changeConnectionStatus({ isConnected: false, isConnecting: false });
         return Promise.resolve();
     }

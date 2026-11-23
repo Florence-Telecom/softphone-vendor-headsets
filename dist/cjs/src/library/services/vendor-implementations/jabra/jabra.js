@@ -23,10 +23,11 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
         this.version = null;
         this.ongoingCalls = 0;
         this.callLock = false;
+        this.config = config;
         this.vendorName = 'Jabra';
     }
     isSupported() {
-        return window.navigator.hid && !(0, utils_1.isCefHosted)();
+        return !!(0, utils_1.checkWebHidSupport)(this.config, this.vendorName.toLowerCase());
     }
     deviceLabelMatchesVendor(label) {
         const lowerLabel = label.toLowerCase();
@@ -74,12 +75,14 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
                         this.activeConversationId = this.pendingConversationId;
                         this.pendingConversationId = null;
                         if (!this.pendingConversationIsOutbound) {
+                            this.logger.debug('Call is not outbound, answering incoming call');
                             this.deviceAnsweredCall({
                                 name: 'CallOffHook',
                                 code: signal.type,
                                 conversationId: this.activeConversationId,
                             });
                         }
+                        this.logger.debug('Received hook switch event from device: Off hook', { signal });
                     }
                     else {
                         callControl.mute(false);
@@ -105,6 +108,7 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
                             this.activeConversationId = null;
                             this.callLock = false;
                         }
+                        this.logger.debug('Received hook switch event from device: On hook', { signal });
                     }
                     break;
                 case jabra_js_1.SignalType.FLASH:
@@ -117,6 +121,7 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
                         code: signal.type,
                         conversationId: this.activeConversationId,
                     });
+                    this.logger.debug(`Received hold state toggle event from device: ${this.isHeld ? 'Holding call' : 'Resuming held call'}`, { signal });
                     break;
                 case jabra_js_1.SignalType.PHONE_MUTE:
                     this.isMuted = !this.isMuted;
@@ -127,6 +132,7 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
                         code: signal.type,
                         conversationId: this.activeConversationId,
                     });
+                    this.logger.debug(`Received mute state toggle event from device: ${this.isMuted ? 'Muting call' : 'Unmuting call'}`, { signal });
                     break;
                 case jabra_js_1.SignalType.REJECT_CALL:
                     callControl.ring(false);
@@ -150,6 +156,7 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
                             this.logger.error(type, message);
                         }
                     }
+                    this.logger.debug('Received reject call event from device', { signal });
             }
         }));
     }
@@ -321,8 +328,9 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
         var _a;
         return deviceLabel.toLowerCase().includes((_a = device === null || device === void 0 ? void 0 : device.name) === null || _a === void 0 ? void 0 : _a.toLowerCase());
     }
-    connect(originalDeviceLabel = '', options) {
-        return __awaiter(this, void 0, void 0, function* () {
+    connect() {
+        return __awaiter(this, arguments, void 0, function* (originalDeviceLabel = '', options) {
+            this.logger.debug('Attempting to connect to Jabra WebHID implementation');
             if (this.isConnecting) {
                 return;
             }
@@ -391,8 +399,8 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
             return deviceFound;
         });
     }
-    getPreviouslyConnectedDevice(deviceLabel, manualSelection = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getPreviouslyConnectedDevice(deviceLabel_1) {
+        return __awaiter(this, arguments, void 0, function* (deviceLabel, manualSelection = false) {
             const waitForDevice = this.jabraSdk.deviceList.pipe((0, operators_1.defaultIfEmpty)(null), (0, operators_1.first)((devices) => !!devices.length), (0, operators_1.map)((devices) => manualSelection
                 ? devices.length === 1 ? devices[0] : null
                 : devices.find((device) => this.isDeviceInList(device, deviceLabel))), (0, operators_1.filter)((device) => !!device), (0, operators_1.timeout)(15000));
@@ -404,8 +412,8 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
             });
         });
     }
-    getDeviceFromWebhid(deviceLabel, manualSelection = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getDeviceFromWebhid(deviceLabel_1) {
+        return __awaiter(this, arguments, void 0, function* (deviceLabel, manualSelection = false) {
             const previouslyKnownIds = manualSelection
                 ? yield (0, rxjs_1.firstValueFrom)(this.jabraSdk.deviceList.pipe((0, operators_1.first)())).then(devices => new Set(devices.map(device => String(device.id))))
                 : new Set();
@@ -462,6 +470,7 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
     }
     disconnect() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.logger.debug('Attempting to disconnect from Jabra WebHID implementation');
             try {
                 if (!this.callLock) {
                     return this.logger.info('Currently not in possession of the Call Lock; Cannot react to Device Actions');
@@ -489,6 +498,6 @@ class JabraService extends vendor_implementation_1.VendorImplementation {
         });
     }
 }
-exports.default = JabraService;
 JabraService.connectTimeout = 5000;
+exports.default = JabraService;
 //# sourceMappingURL=jabra.js.map

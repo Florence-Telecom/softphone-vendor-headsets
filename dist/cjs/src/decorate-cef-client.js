@@ -1,33 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = default_1;
 /* istanbul ignore file */
 const events_1 = require("events");
+const utils_1 = require("./library/utils");
 function default_1() {
     if (!window._HostedContextFunctions) {
         return;
     }
-    const fakeApplicationService = new ApplicationService();
-    const Orgspan = {
-        serviceFor: (name) => {
-            if (name !== 'application') {
-                throw new Error('Only the application service is mocked');
-            }
-            return fakeApplicationService;
-        },
-    };
-    window.Orgspan = Orgspan;
-}
-exports.default = default_1;
-class ApplicationService {
-    constructor() {
-        this.hostedContext = new HostedContext();
-    }
-    get(property) {
-        if (property.includes('.')) {
-            throw new Error('can only fetch top-level properties');
-        }
-        return this[property];
-    }
+    return new HostedContext();
 }
 class HostedContext extends events_1.EventEmitter {
     constructor() {
@@ -39,12 +20,18 @@ class HostedContext extends events_1.EventEmitter {
             supportsTerminationRequest: true,
             supportsUnifiedPreferences: true,
         };
-        const appInfo = window._HostedContextFunctions.register(initData);
-        this._supportsJabra = appInfo.supportsJabra;
-        this._isHosted = true;
+        if ((0, utils_1.isCefHosted)()) {
+            const appInfo = window._HostedContextFunctions.register(initData);
+            this._supportsJabra = appInfo.supportsJabra;
+            this._supportsWebHid = appInfo.supportsWebHID;
+            this._isHosted = true;
+        }
     }
     supportsJabra() {
         return !!this._supportsJabra;
+    }
+    supportsWebHid() {
+        return !!this._supportsWebHid;
     }
     isHosted() {
         return !!this._isHosted;
@@ -70,6 +57,13 @@ class HostedContext extends events_1.EventEmitter {
                 attached);
             this.emit('JabraDeviceAttached', { deviceName, deviceId, attached });
         }
+    }
+    sendEventToDesktop(event, data) {
+        window._HostedContextFunctions.sendEventToDesktop(event, {
+            deviceID: data.deviceID,
+            event: data.event,
+            value: data.value
+        });
     }
 }
 //# sourceMappingURL=decorate-cef-client.js.map

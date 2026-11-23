@@ -79,8 +79,7 @@ class CyberAcousticsService extends vendor_implementation_1.VendorImplementation
     }
     // called to check if the WebHID interface is supported
     isSupported() {
-        const supported = window.navigator.hid && !(0, utils_1.isCefHosted)();
-        return supported;
+        return !!(0, utils_1.checkWebHidSupport)(this.config, this.vendorName.toLowerCase());
     }
     deviceLabelMatchesVendor(label) {
         this.logger.debug("CA: matchVendor");
@@ -89,8 +88,8 @@ class CyberAcousticsService extends vendor_implementation_1.VendorImplementation
             'ca essential', 'ca-2890'].some(searchVal => lowerLabel.includes(searchVal));
     }
     // Connect: Attempt to connect to the device
-    connect(originalDeviceLabel = '', options) {
-        return __awaiter(this, void 0, void 0, function* () {
+    connect() {
+        return __awaiter(this, arguments, void 0, function* (originalDeviceLabel = '', options) {
             //// DEBUG CODE ////
             // uncomment to test Forgetdevice with requestWebHidPermissions
             // const devicesListTest = await (window.navigator as any).hid.getDevices({
@@ -170,8 +169,8 @@ class CyberAcousticsService extends vendor_implementation_1.VendorImplementation
         });
     }
     /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-    connectFromHidPermissions(devList, originalDeviceLabel, manualSelection = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    connectFromHidPermissions(devList_1, originalDeviceLabel_1) {
+        return __awaiter(this, arguments, void 0, function* (devList, originalDeviceLabel, manualSelection = false) {
             this.activeDevice = null;
             this.selectDevice(devList, originalDeviceLabel, manualSelection);
             if (this.activeDevice) {

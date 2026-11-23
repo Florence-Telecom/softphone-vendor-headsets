@@ -83,18 +83,23 @@ class VendorImplementation extends events_1.EventEmitter {
         this.emitEvent('webHidPermissionRequested', { callback });
     }
     deviceAnsweredCall(eventInfo) {
+        this.logger.debug('Emitting answer call event from device', { eventInfo });
         this.emitEvent('deviceAnsweredCall', eventInfo);
     }
     deviceRejectedCall(eventInfo) {
+        this.logger.debug('Emitting reject call event from device', { eventInfo });
         this.emitEvent('deviceRejectedCall', eventInfo);
     }
     deviceEndedCall(eventInfo) {
+        this.logger.debug('Emitting end call event from device', { eventInfo });
         this.emitEvent('deviceEndedCall', eventInfo);
     }
     deviceMuteChanged(eventInfo) {
+        this.logger.debug('Emitting mute call event from device', { eventInfo });
         this.emitEvent('deviceMuteStatusChanged', Object.assign({}, eventInfo));
     }
     deviceHoldStatusChanged(eventInfo) {
+        this.logger.debug('Emitting hold call event from device', { eventInfo });
         this.emitEvent('deviceHoldStatusChanged', Object.assign({}, eventInfo));
     }
     deviceEventLogs(eventInfo) {

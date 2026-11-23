@@ -30,6 +30,7 @@ export default class PlantronicsService extends VendorImplementation {
         [callIdOrConversationId in string | number]: string | number;
     };
     private constructor();
+    isSupported(): boolean;
     private _createCallMapping;
     clearTimeouts(): void;
     deviceLabelMatchesVendor(label: string): boolean;

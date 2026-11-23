@@ -34,6 +34,19 @@ export function debounce(func, delay) {
         }, delay);
     };
 }
+export function checkWebHidSupport(config, vendor) {
+    const featureToggleForVendor = Object.keys(config).find(key => {
+        return key.toLowerCase().includes(vendor);
+    });
+    if (isCefHosted()) {
+        if (config[featureToggleForVendor]) {
+            return config.hostedContext.supportsWebHid();
+        }
+    }
+    else {
+        return !!window.navigator.hid;
+    }
+}
 export function isCefHosted() {
     return !!window._HostedContextFunctions;
 }

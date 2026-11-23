@@ -22,11 +22,11 @@ var SennheiserEvents;
     SennheiserEvents["UnmuteFromApp"] = "UnmuteHeadset";
     SennheiserEvents["MuteFromHeadset"] = "MuteSoftphone";
     SennheiserEvents["UnmuteFromHeadset"] = "UnmuteSoftphone";
-})(SennheiserEvents = exports.SennheiserEvents || (exports.SennheiserEvents = {}));
+})(SennheiserEvents || (exports.SennheiserEvents = SennheiserEvents = {}));
 var SennheiserEventTypes;
 (function (SennheiserEventTypes) {
     SennheiserEventTypes["Request"] = "Request";
     SennheiserEventTypes["Notification"] = "Notification";
     SennheiserEventTypes["Ack"] = "Acknowledgement";
-})(SennheiserEventTypes = exports.SennheiserEventTypes || (exports.SennheiserEventTypes = {}));
+})(SennheiserEventTypes || (exports.SennheiserEventTypes = SennheiserEventTypes = {}));
 //# sourceMappingURL=types.js.map

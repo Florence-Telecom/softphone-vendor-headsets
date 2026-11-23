@@ -10,11 +10,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { Subject } from 'rxjs';
 import CyberAcousticsService from './vendor-implementations/CyberAcoustics/CyberAcoustics';
 import PlantronicsService from './vendor-implementations/plantronics/plantronics';
+import HpService from './vendor-implementations/hp/hp';
 import SennheiserService from './vendor-implementations/sennheiser/sennheiser';
 import JabraService from './vendor-implementations/jabra/jabra';
 import JabraNativeService from './vendor-implementations/jabra/jabra-native/jabra-native';
 import YealinkService from './vendor-implementations/yealink/yealink';
 import VBetService from './vendor-implementations/vbet/vbet';
+import AnkerService from './vendor-implementations/anker/anker';
 import { HeadsetEvents } from '../types/consumed-headset-events';
 const REMOVE_WAIT = 2000;
 export default class HeadsetService {
@@ -24,7 +26,8 @@ export default class HeadsetService {
         this._headsetEvents$ = new Subject();
         this.headsetEvents$ = this._headsetEvents$.asObservable();
         this.logger = config.logger || console;
-        this.plantronics = PlantronicsService.getInstance({ logger: this.logger, appName: config.appName });
+        this.plantronics = PlantronicsService.getInstance({ logger: this.logger, appName: config.appName, useNewPolyImplementation: config.useNewPolyImplementation });
+        this.hp = HpService.getInstance({ logger: this.logger, appName: config.appName, useNewPolyImplementation: config.useNewPolyImplementation });
         this.jabraNative = JabraNativeService.getInstance({ logger: this.logger });
         this.jabra = JabraService.getInstance({ logger: this.logger });
         this.sennheiser = SennheiserService.getInstance({
@@ -32,10 +35,11 @@ export default class HeadsetService {
             appName: config.appName,
             createNew: config.createNew
         });
-        this.yealink = YealinkService.getInstance({ logger: this.logger });
-        this.vbet = VBetService.getInstance({ logger: this.logger });
-        this.cyberAcoustics = CyberAcousticsService.getInstance({ logger: this.logger });
-        [this.plantronics, this.jabra, this.jabraNative, this.sennheiser, this.yealink, this.vbet, this.cyberAcoustics].forEach(implementation => this.subscribeToHeadsetEvents(implementation));
+        this.yealink = YealinkService.getInstance({ logger: this.logger, hostedContext: config.hostedContext, useWebHidOnDesktopYealink: config.useWebHidOnDesktopYealink });
+        this.vbet = VBetService.getInstance({ logger: this.logger, hostedContext: config.hostedContext, useWebHidOnDesktopVbet: config.useWebHidOnDesktopVbet });
+        this.cyberAcoustics = CyberAcousticsService.getInstance({ logger: this.logger, hostedContext: config.hostedContext, useWebHidOnDesktopCyberAcoustics: config.useWebHidOnDesktopCyberAcoustics });
+        this.anker = AnkerService.getInstance({ logger: this.logger, hostedContext: config.hostedContext, useWebHidOnDesktopAnker: config.useWebHidOnDesktopAnker });
+        [this.plantronics, this.hp, this.jabra, this.jabraNative, this.sennheiser, this.yealink, this.vbet, this.cyberAcoustics, this.anker].forEach(implementation => this.subscribeToHeadsetEvents(implementation));
     }
     static getInstance(config) {
         if (!HeadsetService.instance || config.createNew) {
@@ -47,12 +51,15 @@ export default class HeadsetService {
         const implementations = [
             this.sennheiser,
             this.plantronics,
+            this.hp,
             this.jabra,
             this.jabraNative,
             this.yealink,
             this.vbet,
-            this.cyberAcoustics
+            this.cyberAcoustics,
+            this.anker
         ].filter((impl) => impl.isSupported());
+        this.logger.debug('Available vendor implementations based on environment and configuration', { implementations });
         return implementations;
     }
     isDifferentState(props) {
@@ -84,6 +91,7 @@ export default class HeadsetService {
         return !!implementation;
     }
     activeMicChange(newMicLabel, changeReason) {
+        this.logger.debug(`Attempting to update active device to ${newMicLabel}${changeReason ? ` due to ${changeReason}` : ''}`);
         if (newMicLabel) {
             const implementation = this.implementations.find((implementation) => implementation.deviceLabelMatchesVendor(newMicLabel));
             if (implementation) {
@@ -126,6 +134,7 @@ export default class HeadsetService {
     incomingCall(callInfo, hasOtherActiveCalls) {
         return __awaiter(this, void 0, void 0, function* () {
             const implementation = this.getConnectedImpl();
+            this.logger.debug('Received incoming call event from consuming app', { callInfo, implementation });
             if (!implementation) {
                 return;
             }
@@ -142,6 +151,7 @@ export default class HeadsetService {
     outgoingCall(callInfo) {
         return __awaiter(this, void 0, void 0, function* () {
             const implementation = this.getConnectedImpl();
+            this.logger.debug('Received outgoing call event from consuming app', { callInfo, implementation });
             if (!implementation) {
                 return;
             }
@@ -158,6 +168,7 @@ export default class HeadsetService {
     answerCall(conversationId, autoAnswer) {
         return __awaiter(this, void 0, void 0, function* () {
             const implementation = this.getConnectedImpl();
+            this.logger.debug('Received answer call event from consuming app', { conversationId, implementation, autoAnswer });
             if (!implementation) {
                 return;
             }
@@ -182,9 +193,10 @@ export default class HeadsetService {
             }
         });
     }
-    rejectCall(conversationId, expectExistingConversation = true) {
-        return __awaiter(this, void 0, void 0, function* () {
+    rejectCall(conversationId_1) {
+        return __awaiter(this, arguments, void 0, function* (conversationId, expectExistingConversation = true) {
             const implementation = this.getConnectedImpl();
+            this.logger.debug('Received reject call event from consuming app', { conversationId, implementation });
             if (!implementation) {
                 return;
             }
@@ -201,6 +213,7 @@ export default class HeadsetService {
     setMute(value) {
         return __awaiter(this, void 0, void 0, function* () {
             const implementation = this.getConnectedImpl();
+            this.logger.debug('Received mute call event from consuming app', { implementation, value });
             if (!implementation) {
                 return;
             }
@@ -213,6 +226,7 @@ export default class HeadsetService {
     setHold(conversationId, value) {
         return __awaiter(this, void 0, void 0, function* () {
             const implementation = this.getConnectedImpl();
+            this.logger.debug('Received hold call event from consuming app', { conversationId, implementation, value });
             if (!implementation) {
                 return;
             }
@@ -227,6 +241,7 @@ export default class HeadsetService {
     endCall(conversationId, hasOtherActiveCalls) {
         return __awaiter(this, void 0, void 0, function* () {
             const implementation = this.getConnectedImpl();
+            this.logger.debug('Received end call event from consuming app', { conversationId, implementation });
             if (!implementation) {
                 return;
             }

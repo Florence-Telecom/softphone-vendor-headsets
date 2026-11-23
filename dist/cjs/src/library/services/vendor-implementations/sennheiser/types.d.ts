@@ -34,7 +34,7 @@ export declare enum SennheiserEvents {
     UnmuteFromHeadset = "UnmuteSoftphone"
 }
 export declare enum SennheiserEventTypes {
-    Request = "Request",
-    Notification = "Notification",
+    Request = "Request",// outgoing actions
+    Notification = "Notification",// typically actions from headset
     Ack = "Acknowledgement"
 }

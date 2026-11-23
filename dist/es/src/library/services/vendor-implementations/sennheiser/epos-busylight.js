@@ -85,8 +85,8 @@ export class EposBusylightController {
         return !!((_a = this.device) === null || _a === void 0 ? void 0 : _a.opened);
     }
     connect(device) {
-        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
             if (!device.opened)
                 yield device.open();
             this.device = device;
@@ -111,8 +111,8 @@ export class EposBusylightController {
         }
     }
     sendColor(color) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (!((_a = this.device) === null || _a === void 0 ? void 0 : _a.opened))
                 return;
             const { red = 0, green = 0, blue = 0 } = color !== null && color !== void 0 ? color : {};
@@ -122,8 +122,8 @@ export class EposBusylightController {
         });
     }
     /** Solid color for busy/held, blinking for ringing, off for idle. Best-effort. */
-    setPhase(phase, colors = DEFAULT_BUSYLIGHT_COLORS) {
-        return __awaiter(this, void 0, void 0, function* () {
+    setPhase(phase_1) {
+        return __awaiter(this, arguments, void 0, function* (phase, colors = DEFAULT_BUSYLIGHT_COLORS) {
             this.stopBlink();
             this.currentPhase = phase;
             if (phase === 'idle') {
@@ -146,8 +146,8 @@ export class EposBusylightController {
         return this.currentPhase;
     }
     ring() {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (!((_a = this.device) === null || _a === void 0 ? void 0 : _a.opened))
                 return;
             yield this.device.sendReport(REPORT_ID, buildReport(RINGER_VOLUME_HEADER, this.ringerReportLength));

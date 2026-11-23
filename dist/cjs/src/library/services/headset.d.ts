@@ -7,12 +7,14 @@ import { UpdateReasons } from '../types/headset-states';
 export default class HeadsetService {
     private static instance;
     plantronics: VendorImplementation;
+    hp: VendorImplementation;
     jabraNative: VendorImplementation;
     jabra: VendorImplementation;
     sennheiser: VendorImplementation;
     yealink: VendorImplementation;
     vbet: VendorImplementation;
     cyberAcoustics: VendorImplementation;
+    anker: VendorImplementation;
     selectedImplementation: VendorImplementation;
     headsetEvents$: Observable<ConsumedHeadsetEvents>;
     private headsetConversationStates;

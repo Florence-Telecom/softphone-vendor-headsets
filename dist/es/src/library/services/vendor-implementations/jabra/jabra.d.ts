@@ -20,6 +20,7 @@ export default class JabraService extends VendorImplementation {
     pendingConversationId: string;
     pendingConversationIsOutbound: boolean;
     activeConversationId: string;
+    config: ImplementationConfig;
     private constructor();
     isSupported(): boolean;
     deviceLabelMatchesVendor(label: string): boolean;

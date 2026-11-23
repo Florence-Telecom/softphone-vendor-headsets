@@ -38,7 +38,7 @@ var PlantronicsCallEventCodes;
     PlantronicsCallEventCodes[PlantronicsCallEventCodes["DeviceChange"] = 32] = "DeviceChange";
     PlantronicsCallEventCodes[PlantronicsCallEventCodes["DeviceArrived"] = 33] = "DeviceArrived";
     PlantronicsCallEventCodes[PlantronicsCallEventCodes["DeviceRemoved"] = 34] = "DeviceRemoved";
-})(PlantronicsCallEventCodes = exports.PlantronicsCallEventCodes || (exports.PlantronicsCallEventCodes = {}));
+})(PlantronicsCallEventCodes || (exports.PlantronicsCallEventCodes = PlantronicsCallEventCodes = {}));
 // Don't need this, because CallEvents[code] will return the name
 // const reverseCallEvents: Dictionary;
 // for (const eventName of Object.keys(CallEvents)) {

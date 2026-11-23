@@ -8,7 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import { VendorImplementation } from "../vendor-implementation";
-import { isCefHosted } from "../../../utils";
+import { checkWebHidSupport } from "../../../utils";
 const offhookFlag = 0b1;
 const muteFlag = 0b10;
 const ringFlag = 0b100;
@@ -39,14 +39,15 @@ export default class YealinkService extends VendorImplementation {
         return this._deviceInfo;
     }
     isSupported() {
-        return window.navigator.hid && !isCefHosted();
+        return !!checkWebHidSupport(this.config, this.vendorName.toLowerCase());
     }
     deviceLabelMatchesVendor(label) {
         const lowerLabel = label.toLowerCase();
         return ['yealink', '(6993:'].some(searchVal => lowerLabel.includes(searchVal));
     }
-    connect(originalDeviceLabel = '', options) {
-        return __awaiter(this, void 0, void 0, function* () {
+    connect() {
+        return __awaiter(this, arguments, void 0, function* (originalDeviceLabel = '', options) {
+            this.logger.debug('Attempting to connect Yealink implementation');
             if (!this.isConnecting) {
                 this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
             }
@@ -61,9 +62,7 @@ export default class YealinkService extends VendorImplementation {
                             if (collection.usage === HEADSET_USAGE &&
                                 collection.usagePage === HEADSET_USAGE_PAGE) {
                                 this.activeDevice = device;
-                                if (collection.inputReports.length !== 0) {
-                                    this.inputReportReportId = HEADSET_REPORT_ID;
-                                }
+                                this.inputReportReportId = this.resolveReportId(collection);
                                 break;
                             }
                         }
@@ -90,9 +89,7 @@ export default class YealinkService extends VendorImplementation {
                                         if (collection.usage === HEADSET_USAGE
                                             && collection.usagePage === HEADSET_USAGE_PAGE) {
                                             bFind = true;
-                                            if (collection.inputReports.length !== 0) {
-                                                this.inputReportReportId = HEADSET_REPORT_ID;
-                                            }
+                                            this.inputReportReportId = this.resolveReportId(collection);
                                             resolve(device);
                                             break;
                                         }
@@ -132,6 +129,7 @@ export default class YealinkService extends VendorImplementation {
     }
     disconnect() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.logger.debug('Attempting to disconnect Yealink implementation');
             if (this.isConnected || this.isConnecting) {
                 this.changeConnectionStatus({ isConnected: false, isConnecting: false });
             }
@@ -141,6 +139,11 @@ export default class YealinkService extends VendorImplementation {
                 this._deviceInfo = null;
                 this.inputReportReportId = 0;
             }
+            this.callState = 0;
+            this.recCallState = 0;
+            this.isHold = false;
+            this.pendingConversationId = null;
+            this.activeConversationId = null;
         });
     }
     processBtnPress(value) {
@@ -286,6 +289,27 @@ export default class YealinkService extends VendorImplementation {
                 this.sendOpToDevice(setValue | offhookFlag);
             }
         });
+    }
+    /**
+     * Different Yealink models advertise their telephony HID reports at different
+     * levels of the descriptor hierarchy. Some expose input reports directly on the
+     * top-level telephony collection (usage 5 / usagePage 11), while others — like
+     * the UH38 — nest them inside a child collection. This method walks the
+     * descriptor to find the actual report ID the device uses, so we don't have to
+     * hardcode a value that only works for some models.
+     */
+    resolveReportId(collection) {
+        if (collection.inputReports && collection.inputReports.length !== 0) {
+            return collection.inputReports[0].reportId;
+        }
+        if (collection.children) {
+            for (const child of collection.children) {
+                if (child.inputReports && child.inputReports.length !== 0) {
+                    return child.inputReports[0].reportId;
+                }
+            }
+        }
+        return HEADSET_REPORT_ID;
     }
     sendOpToDevice(value) {
         return __awaiter(this, void 0, void 0, function* () {

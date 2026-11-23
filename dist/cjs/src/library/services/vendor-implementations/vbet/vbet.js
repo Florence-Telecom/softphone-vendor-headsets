@@ -21,6 +21,7 @@ class VBetService extends vendor_implementation_1.VendorImplementation {
         this.processBtnPress = (signal) => {
             switch (signal) {
                 case webhid_sdk_1.DeviceSignalType.ACCEPT_CALL:
+                    this.logger.debug('Received accept call event from device', { signal });
                     if (this.pendingConversationId) {
                         this.answerCall(this.pendingConversationId);
                         this.deviceAnsweredCall({
@@ -33,6 +34,7 @@ class VBetService extends vendor_implementation_1.VendorImplementation {
                     }
                     break;
                 case webhid_sdk_1.DeviceSignalType.END_CALL:
+                    this.logger.debug('Received end call event from device', { signal });
                     if (this.activeConversationId) {
                         const id = this.activeConversationId;
                         this.endCall(id);
@@ -47,6 +49,7 @@ class VBetService extends vendor_implementation_1.VendorImplementation {
                     break;
                 case webhid_sdk_1.DeviceSignalType.MUTE_CALL:
                 case webhid_sdk_1.DeviceSignalType.UNMUTE_CALL:
+                    this.logger.debug(`Received mute state toggle event from device: ${signal === webhid_sdk_1.DeviceSignalType.MUTE_CALL ? 'Mute call' : 'Unmute call'}`, { signal });
                     if (this.activeConversationId) {
                         this.setMute(signal === webhid_sdk_1.DeviceSignalType.MUTE_CALL);
                         this.deviceMuteChanged({
@@ -60,6 +63,7 @@ class VBetService extends vendor_implementation_1.VendorImplementation {
                     }
                     break;
                 case webhid_sdk_1.DeviceSignalType.REJECT_CALL:
+                    this.logger.debug('Received reject call event from device', { signal });
                     if (this.pendingConversationId) {
                         this.rejectCall(this.pendingConversationId);
                         this.deviceRejectedCall({
@@ -84,14 +88,15 @@ class VBetService extends vendor_implementation_1.VendorImplementation {
         return this._deviceInfo;
     }
     isSupported() {
-        return window.navigator.hid && !(0, utils_1.isCefHosted)();
+        return !!(0, utils_1.checkWebHidSupport)(this.config, this.vendorName.toLowerCase());
     }
     deviceLabelMatchesVendor(label) {
         const lowerLabel = label.toLowerCase();
         return ['vt', '340b'].some((searchVal) => lowerLabel.includes(searchVal));
     }
-    connect(originalDeviceLabel = '', options) {
-        return __awaiter(this, void 0, void 0, function* () {
+    connect() {
+        return __awaiter(this, arguments, void 0, function* (originalDeviceLabel = '', options) {
+            this.logger.debug('Attempting to connect VBeT implementation');
             if (!this.isConnecting) {
                 this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
             }
@@ -135,6 +140,7 @@ class VBetService extends vendor_implementation_1.VendorImplementation {
     }
     disconnect() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.logger.debug('Attempting to disconnect VBeT implementation');
             this.changeConnectionStatus({ isConnected: false, isConnecting: false });
             this.activeDevice && this.activeDevice.unsubscribe();
             this.activeDevice = null;

@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [STREAM-1795](https://inindca.atlassian.net/browse/STREAM-1795) - Added in new implementation for Poly HP devices that use WebHID as opposed to secondary application
 * [no-jira] Added WebHID support for Anker PowerConf speakerphones (S330). The call button is stateless, so a press answers a ringing call or ends the active one.
 
+# [3.0.3-florence.1]
+Florence fork line rebased onto upstream `develop` (v3.0.3 plus the HP CCSDK, post-Poly
+cleanup and Anker work) by merging `florence/epos-lifecycle-v2.5.6` (`2.5.6-florence.3`).
+## Added
+* Carry the full `2.5.6-florence.3` fork feature set forward: typed manual provider
+  selection, EPOS UI 20 busylight WebHID control, EPOS session-phase visibility, and
+  serialized vendor transitions.
+* Include upstream's Anker PowerConf (S330) WebHID support and HP CCSDK integration.
+
+## Changed
+* `connect()` on Jabra, VBeT and Yealink takes `(label = '', options?)` while keeping
+  upstream's connection debug logging.
+* EPOS/Sennheiser `connect()` and `disconnect()` retire the owned socket through
+  `retireSocket` instead of sending `TerminateConnection`.
+* `HeadsetService` passes `appName` and `createNew` to the Sennheiser service and keeps
+  upstream's `hostedContext` / `useWebHidOnDesktop*` options for the WebHID vendors.
+* Jabra SDK remains pinned to `4.4.6`; the package stays private.
+
 # [v3.0.3](https://github.com/purecloudlabs/softphone-vendor-headsets/compare/v3.0.2...v3.0.3)
 ## Fixed
 * [STREAM-1688](https://inindca.atlassian.net/browse/STREAM-1688) - Reset mute and hold on the Plantronics/Poly device before terminating a call, and emit a hold status change event so the consuming app stays in sync. Prevents a stale mute/hold state from carrying over to the next call.

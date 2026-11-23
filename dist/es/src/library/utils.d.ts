@@ -1,3 +1,4 @@
+import { ImplementationConfig } from './services/vendor-implementations/vendor-implementation';
 export declare function isFirefox(): boolean;
 /**
  *
@@ -10,5 +11,6 @@ export declare function isFirefox(): boolean;
  */
 export declare function timedPromise(promise: Promise<any>, timeoutInMillis: number, timeoutError?: Error): Promise<any>;
 export declare function debounce(func: () => void, delay: number): any;
+export declare function checkWebHidSupport(config: ImplementationConfig, vendor: string): boolean;
 export declare function isCefHosted(): boolean;
 export declare function requestCefPromise(cmd: any): Promise<any>;

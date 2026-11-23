@@ -14,5 +14,5 @@ var HeadsetEvents;
     HeadsetEvents["deviceConnectionStatusChanged"] = "deviceConnectionStatusChanged";
     HeadsetEvents["deviceEventLogs"] = "deviceEventLogs";
     HeadsetEvents["integrationStatusChanged"] = "integrationStatusChanged";
-})(HeadsetEvents = exports.HeadsetEvents || (exports.HeadsetEvents = {}));
+})(HeadsetEvents || (exports.HeadsetEvents = HeadsetEvents = {}));
 //# sourceMappingURL=consumed-headset-events.js.map

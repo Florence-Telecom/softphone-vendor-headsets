@@ -1,7 +1,10 @@
 # Florence fork maintenance
 
-This patch line is based on upstream `v2.5.6`, commit
-`35ac7f395068cfec5b72b01a4172bba66aa73bc9`.
+This line lives on the `florence/develop` branch. Update it by merging upstream
+`develop` into `florence/develop`; never commit Florence changes to `develop` itself.
+It was originally based on upstream `v2.5.6`, commit
+`35ac7f395068cfec5b72b01a4172bba66aa73bc9`, and was rebased onto upstream `develop`
+(v3.0.3 plus HP CCSDK, post-Poly cleanup and Anker) as `3.0.3-florence.1`.
 
 It carries Florence-specific fixes:
 

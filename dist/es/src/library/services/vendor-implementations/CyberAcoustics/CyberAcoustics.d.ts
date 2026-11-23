@@ -19,7 +19,7 @@ export default class CyberAcousticsService extends VendorImplementation {
     private currentCallInfo;
     protected currentCallState: string;
     private deviceStatus;
-    protected gCmdBuf: Uint8Array;
+    protected gCmdBuf: Uint8Array<ArrayBuffer>;
     private inputReportReportId;
     private outputReportReportId;
     private JLCommandSet;

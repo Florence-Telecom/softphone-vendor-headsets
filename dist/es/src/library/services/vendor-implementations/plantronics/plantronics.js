@@ -37,6 +37,9 @@ export default class PlantronicsService extends VendorImplementation {
         this.deviceStatusTimerId = null;
         this.incomingConversationId = null;
     }
+    isSupported() {
+        return !this.config.useNewPolyImplementation;
+    }
     _createCallMapping(conversationId) {
         const ID_LENGTH = 8;
         const callId = Math.round(Math.random() * Math.pow(10, ID_LENGTH)); // Generate random number
@@ -158,8 +161,8 @@ export default class PlantronicsService extends VendorImplementation {
         });
     }
     _getActiveCalls() {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             let result;
             try {
                 const request = yield this._makeRequestTask(`/CallServices/CallManagerState?`);
@@ -173,6 +176,7 @@ export default class PlantronicsService extends VendorImplementation {
                 return [];
             }
             return result.Result.Calls.filter(call => call.Source === this.pluginName);
+            // return result?.Result?.Calls.filter(call => call.Source === this.pluginName);
         });
     }
     getCallEvents() {
@@ -192,7 +196,7 @@ export default class PlantronicsService extends VendorImplementation {
                         return this.logger.info('Unknown call event from headset', { event });
                     }
                     const eventInfo = { name: eventType, event };
-                    this.logger.debug('headset info', eventInfo);
+                    this.logger.debug('event info', eventInfo);
                     this.callCorrespondingFunction(eventInfo);
                 });
             }
@@ -203,6 +207,7 @@ export default class PlantronicsService extends VendorImplementation {
             yield this._makeRequestTask(`/DeviceServices/Info`)
                 .then(response => {
                 this._deviceInfo = response.Result;
+                this.logger.debug('device info', this._deviceInfo);
             })
                 .catch(err => {
                 const noDevicesError = err.Err && err.Err.Description.includes('no supported devices');
@@ -217,15 +222,18 @@ export default class PlantronicsService extends VendorImplementation {
         const conversationId = this.callMappings[callId];
         switch (eventInfo.name) {
             case 'AcceptCall':
+                this.logger.debug('Received accept call event from device', { eventInfo });
                 this.deviceAnsweredCall(Object.assign(Object.assign({}, eventInfo), { conversationId }));
                 break;
             case 'RejectCall':
+                this.logger.debug('Received reject call event from device', { eventInfo });
                 this.endCall(conversationId);
                 this.deviceRejectedCall({ name: eventInfo.name, conversationId: this.incomingConversationId });
                 break;
             case 'TerminateCall':
                 this.setMute(false);
                 this.setHold(conversationId, false);
+                this.logger.debug('Received terminate call event from device, call state reset', { eventInfo });
                 this.deviceEndedCall(Object.assign(Object.assign({}, eventInfo), { conversationId }));
                 break;
             case 'CallEnded':
@@ -234,15 +242,19 @@ export default class PlantronicsService extends VendorImplementation {
                 this._checkIsActiveTask();
                 break;
             case 'Mute':
+                this.logger.debug('Received mute call event from device', { eventInfo });
                 this.deviceMuteChanged(Object.assign(Object.assign({ isMuted: true }, eventInfo), { conversationId }));
                 break;
             case 'Unmute':
+                this.logger.debug('Received unmute call event from device', { eventInfo });
                 this.deviceMuteChanged(Object.assign(Object.assign({ isMuted: false }, eventInfo), { conversationId }));
                 break;
             case 'HoldCall':
+                this.logger.debug('Received hold call event from device', { eventInfo });
                 this.deviceHoldStatusChanged(Object.assign(Object.assign({ holdRequested: true }, eventInfo), { conversationId }));
                 break;
             case 'ResumeCall':
+                this.logger.debug('Received resume call event from device', { eventInfo });
                 this.deviceHoldStatusChanged(Object.assign(Object.assign({ holdRequested: false }, eventInfo), { conversationId }));
                 break;
             default:
@@ -251,8 +263,8 @@ export default class PlantronicsService extends VendorImplementation {
         }
     }
     unregisterPlugin() {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             try {
                 return yield this._makeRequestTask(`/SessionManager/UnRegister?name=${this.pluginName}`);
             }
@@ -266,6 +278,7 @@ export default class PlantronicsService extends VendorImplementation {
     }
     connect() {
         return __awaiter(this, void 0, void 0, function* () {
+            this.logger.debug('Attempting to connect Plantronics/Poly implementation');
             !this.isConnecting && this.changeConnectionStatus({ isConnected: this.isConnected, isConnecting: true });
             this.pollForDeviceStatus();
             this.pollForCallEvents();
@@ -318,6 +331,7 @@ export default class PlantronicsService extends VendorImplementation {
     }
     disconnect(clearReason) {
         return __awaiter(this, void 0, void 0, function* () {
+            this.logger.debug('Attempting to disconnect Plantronics/Poly implementation');
             if (!this.isConnected) {
                 return;
             }
@@ -350,8 +364,8 @@ export default class PlantronicsService extends VendorImplementation {
         this.isActive = true;
         return this._makeRequestTask(`/CallServices/IncomingCall${params}`);
     }
-    outgoingCall({ conversationId, contactName }) {
-        return __awaiter(this, void 0, void 0, function* () {
+    outgoingCall(_a) {
+        return __awaiter(this, arguments, void 0, function* ({ conversationId, contactName }) {
             if (!conversationId) {
                 throw new Error('Must provide conversationId');
             }
@@ -391,9 +405,21 @@ export default class PlantronicsService extends VendorImplementation {
             const callId = this.callMappings[conversationId];
             const halfEncodedCallIdString = `"Id":"${callId}"`;
             params += `&callID={${encodeURI(halfEncodedCallIdString)}}`;
+            try {
+                yield this.setMute(false);
+                this.deviceMuteChanged({ isMuted: false, name: 'CallEndMuteReset', conversationId });
+            }
+            catch (e) {
+                this.logger.info('Plantronics: failed to reset mute before ending call', { conversationId, error: e });
+            }
+            try {
+                yield this.setHold(conversationId, false);
+                this.deviceHoldStatusChanged({ holdRequested: false, name: 'CallEndHoldReset', conversationId });
+            }
+            catch (e) {
+                this.logger.info('Plantronics: failed to reset hold before ending call', { conversationId, error: e });
+            }
             const response = yield this._makeRequestTask(`/CallServices/TerminateCall${params}`);
-            this.setMute(false);
-            this.setHold(conversationId, false);
             yield this.getCallEvents();
             this._checkIsActiveTask();
             return response;

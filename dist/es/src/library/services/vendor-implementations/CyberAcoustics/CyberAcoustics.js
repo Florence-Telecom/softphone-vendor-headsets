@@ -8,7 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import { VendorImplementation } from "../vendor-implementation";
-import { isCefHosted } from "../../../utils";
+import { checkWebHidSupport } from "../../../utils";
 let hookswFlag = 0x01;
 let micMuteFlag = 0x04;
 const ringFlag = 0x08;
@@ -77,8 +77,7 @@ export default class CyberAcousticsService extends VendorImplementation {
     }
     // called to check if the WebHID interface is supported
     isSupported() {
-        const supported = window.navigator.hid && !isCefHosted();
-        return supported;
+        return !!checkWebHidSupport(this.config, this.vendorName.toLowerCase());
     }
     deviceLabelMatchesVendor(label) {
         this.logger.debug("CA: matchVendor");
@@ -87,8 +86,8 @@ export default class CyberAcousticsService extends VendorImplementation {
             'ca essential', 'ca-2890'].some(searchVal => lowerLabel.includes(searchVal));
     }
     // Connect: Attempt to connect to the device
-    connect(originalDeviceLabel = '', options) {
-        return __awaiter(this, void 0, void 0, function* () {
+    connect() {
+        return __awaiter(this, arguments, void 0, function* (originalDeviceLabel = '', options) {
             //// DEBUG CODE ////
             // uncomment to test Forgetdevice with requestWebHidPermissions
             // const devicesListTest = await (window.navigator as any).hid.getDevices({
@@ -168,8 +167,8 @@ export default class CyberAcousticsService extends VendorImplementation {
         });
     }
     /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-    connectFromHidPermissions(devList, originalDeviceLabel, manualSelection = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    connectFromHidPermissions(devList_1, originalDeviceLabel_1) {
+        return __awaiter(this, arguments, void 0, function* (devList, originalDeviceLabel, manualSelection = false) {
             this.activeDevice = null;
             this.selectDevice(devList, originalDeviceLabel, manualSelection);
             if (this.activeDevice) {

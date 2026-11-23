@@ -82,7 +82,7 @@ function resolveOutputReportByteLength (device: EposHidDevice, reportId: number)
   return undefined;
 }
 
-function buildReport (header: number[], length: number): Uint8Array {
+function buildReport (header: number[], length: number): Uint8Array<ArrayBuffer> {
   const data = new Uint8Array(length);
   data.set(header.slice(0, length));
   return data;
