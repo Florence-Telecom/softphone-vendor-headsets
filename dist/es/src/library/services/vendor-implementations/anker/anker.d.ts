@@ -28,7 +28,7 @@ export default class AnkerService extends VendorImplementation {
     disconnect(): Promise<void>;
     handleInputReport: (event: PartialInputReportEvent) => void;
     private handleCallButtonPress;
-    private handleMuteButtonPress;
+    private syncMuteFromDevice;
     incomingCall(callInfo: CallInfo): Promise<void>;
     outgoingCall(callInfo: CallInfo): Promise<void>;
     answerCall(conversationId: string): Promise<void>;

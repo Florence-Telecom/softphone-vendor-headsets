@@ -23,6 +23,11 @@ import { checkWebHidSupport } from '../../../utils';
  * report (Hook Switch + Flash = 0x03) with no release report, regardless of the Off-Hook LED.
  * The call state is therefore tracked here and a press is interpreted from it:
  * ringing -> answer, call in progress -> hang up, idle -> ignored.
+ *
+ * The device also sends report 2 on its own to echo state changes, with Hook Switch set but
+ * without Flash: e.g. 0x09 (Hook Switch + Phone Mute) when the host turns the Mute LED on during
+ * a call. Only Hook Switch + Flash is a button press; other reports only sync the mute state.
+ * The physical mute button mutes inside the device and sends no report.
  */
 export const ANKER_VENDOR_ID = 0x291A;
 const TELEPHONY_USAGE_PAGE = 0x000B;
@@ -30,6 +35,8 @@ const PHONE_USAGE = 0x0001;
 const HEADSET_USAGE = 0x0005;
 const BUTTON_INPUT_REPORT_ID = 0x02;
 const HOOK_SWITCH_BIT = 0x01;
+const FLASH_BIT = 0x02;
+const CALL_BUTTON_PRESS = HOOK_SWITCH_BIT | FLASH_BIT;
 const PHONE_MUTE_BIT = 0x08;
 const RING_LED_REPORT_ID = 0x03;
 const MUTE_LED_REPORT_ID = 0x04;
@@ -52,11 +59,12 @@ export default class AnkerService extends VendorImplementation {
             }
             const bits = event.data.getUint8(0);
             this.logger.debug(`Anker: received input report 0x${bits.toString(16).padStart(2, '0')}`, { callState: this.callState });
-            if (bits & HOOK_SWITCH_BIT) {
+            if ((bits & CALL_BUTTON_PRESS) === CALL_BUTTON_PRESS) {
                 this.handleCallButtonPress();
             }
-            if (bits & PHONE_MUTE_BIT) {
-                this.handleMuteButtonPress();
+            else {
+                // State echo from the device (e.g. 0x09 after the host sets the Mute LED): never a press
+                this.syncMuteFromDevice(!!(bits & PHONE_MUTE_BIT));
             }
         };
     }
@@ -179,13 +187,13 @@ export default class AnkerService extends VendorImplementation {
                 this.logger.debug('Anker: call button pressed with no call to answer or end');
         }
     }
-    handleMuteButtonPress() {
-        if (this.callState !== 'active') {
-            this.logger.debug('Anker: mute button pressed with no active call');
+    // The reported Phone Mute bit is the device's mute state; only report actual changes so the
+    // echo of a mute requested by the app is a no-op.
+    syncMuteFromDevice(deviceMuted) {
+        if (this.callState !== 'active' || deviceMuted === this.isMuted) {
             return;
         }
-        this.isMuted = !this.isMuted;
-        this.sendLed(MUTE_LED_REPORT_ID, [this.isMuted ? 1 : 0]);
+        this.isMuted = deviceMuted;
         this.deviceMuteChanged({
             isMuted: this.isMuted,
             name: this.isMuted ? 'CallMuted' : 'CallUnmuted',

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [STREAM-1795](https://inindca.atlassian.net/browse/STREAM-1795) - Added in new implementation for Poly HP devices that use WebHID as opposed to secondary application
 * [no-jira] Added WebHID support for Anker PowerConf speakerphones (S330). The call button is stateless, so a press answers a ringing call or ends the active one.
 
+# [3.0.3-florence.2]
+## Fixed
+* Anker: only treat Hook Switch + Flash as a call-button press. Device state echoes that
+  carry Hook Switch without Flash (e.g. `0x09` after the host sets the Mute LED) no longer
+  trigger a press; they only sync the mute state, and only when it actually changed.
+
 # [3.0.3-florence.1]
 Florence fork line rebased onto upstream `develop` (v3.0.3 plus the HP CCSDK, post-Poly
 cleanup and Anker work) by merging `florence/epos-lifecycle-v2.5.6` (`2.5.6-florence.3`).
