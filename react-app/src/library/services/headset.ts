@@ -1,5 +1,5 @@
 import { Observable, Subject } from 'rxjs';
-import { VendorImplementation, ImplementationConfig } from './vendor-implementations/vendor-implementation';
+import { VendorImplementation, ImplementationConfig, ImplementationConnectionOptions } from './vendor-implementations/vendor-implementation';
 import CyberAcousticsService from './vendor-implementations/CyberAcoustics/CyberAcoustics';
 import PlantronicsService from './vendor-implementations/plantronics/plantronics';
 import HpService from './vendor-implementations/hp/hp';
@@ -10,7 +10,7 @@ import YealinkService from './vendor-implementations/yealink/yealink';
 import VBetService from './vendor-implementations/vbet/vbet';
 import AnkerService from './vendor-implementations/anker/anker';
 import { CallInfo } from '../types/call-info';
-import { VendorEvent, HoldEventInfo, MutedEventInfo, EventInfoWithConversationId } from '../types/emitted-headset-events';
+import { VendorEvent, HoldEventInfo, MutedEventInfo, EventInfoWithConversationId, HeadsetIntegrationStatus } from '../types/emitted-headset-events';
 import { WebHidPermissionRequest } from '..';
 import { ConsumedHeadsetEvents, HeadsetEvents, DeviceConnectionStatus } from '../types/consumed-headset-events';
 import { HeadsetState, HeadsetStateRecord, UpdateReasons } from '../types/headset-states';
@@ -38,6 +38,7 @@ export default class HeadsetService {
   private headsetConversationStates: { [conversationId: string]: HeadsetStateRecord } = {};
   private _headsetEvents$: Subject<ConsumedHeadsetEvents>;
   private logger: any;
+  private implementationTransitionGeneration = 0;
 
   private constructor (config: ImplementationConfig) {
     this._headsetEvents$ = new Subject<ConsumedHeadsetEvents>();
@@ -48,7 +49,11 @@ export default class HeadsetService {
     this.hp = HpService.getInstance({ logger: this.logger, appName: config.appName, useNewPolyImplementation: config.useNewPolyImplementation });
     this.jabraNative = JabraNativeService.getInstance({ logger: this.logger });
     this.jabra = JabraService.getInstance({ logger: this.logger });
-    this.sennheiser = SennheiserService.getInstance({ logger: this.logger });
+    this.sennheiser = SennheiserService.getInstance({
+      logger: this.logger,
+      appName: config.appName,
+      createNew: config.createNew
+    });
     this.yealink = YealinkService.getInstance({ logger: this.logger, hostedContext: config.hostedContext, useWebHidOnDesktopYealink: config.useWebHidOnDesktopYealink });
     this.vbet = VBetService.getInstance({ logger: this.logger, hostedContext: config.hostedContext, useWebHidOnDesktopVbet: config.useWebHidOnDesktopVbet });
     this.cyberAcoustics = CyberAcousticsService.getInstance({ logger: this.logger, hostedContext: config.hostedContext, useWebHidOnDesktopCyberAcoustics: config.useWebHidOnDesktopCyberAcoustics });
@@ -132,16 +137,26 @@ export default class HeadsetService {
     }
   }
 
-  async changeImplementation (implementation: VendorImplementation | null, deviceLabel: string): Promise<void> {
+  async changeImplementation (
+    implementation: VendorImplementation | null,
+    deviceLabel: string,
+    options?: ImplementationConnectionOptions
+  ): Promise<void> {
     if (implementation === this.selectedImplementation) {
       return;
     }
 
-    if (this.selectedImplementation) {
+    const transitionGeneration = ++this.implementationTransitionGeneration;
+    const previousImplementation = this.selectedImplementation;
+
+    if (previousImplementation) {
       // remove headsetStates associated with implementation
       this.headsetConversationStates = {};
 
-      await this.selectedImplementation.disconnect();
+      await previousImplementation.disconnect();
+      if (transitionGeneration !== this.implementationTransitionGeneration) {
+        return;
+      }
     }
 
     this.selectedImplementation = implementation;
@@ -149,7 +164,13 @@ export default class HeadsetService {
     this._headsetEvents$.next({ event: HeadsetEvents.implementationChanged, payload: implementation });
 
     if (implementation) {
-      await implementation.connect(deviceLabel);
+      await implementation.connect(deviceLabel, options);
+      if (
+        transitionGeneration !== this.implementationTransitionGeneration &&
+        this.selectedImplementation !== implementation
+      ) {
+        await implementation.disconnect();
+      }
     }
   }
 
@@ -298,12 +319,19 @@ export default class HeadsetService {
     return implementation.endAllCalls();
   }
 
-  retryConnection (micLabel: string): Promise<void> {
+  retryConnection (
+    micLabel: string,
+    options?: ImplementationConnectionOptions
+  ): Promise<void> {
     if (!this.selectedImplementation) {
       return Promise.reject(new Error('No active headset implementation'));
     }
 
-    return this.selectedImplementation.connect(micLabel);
+    return this.selectedImplementation.connect(micLabel, options);
+  }
+
+  integrationStatus (): HeadsetIntegrationStatus | undefined {
+    return this.selectedImplementation?.integrationStatus;
   }
 
   connectionStatus (): DeviceConnectionStatus {
@@ -343,9 +371,12 @@ export default class HeadsetService {
     implementation.on(HeadsetEvents.deviceEventLogs, this.handleDeviceLogs.bind(this));
     implementation.on(HeadsetEvents.deviceConnectionStatusChanged, this.handleDeviceConnectionStatusChanged.bind(this));
     implementation.on(HeadsetEvents.webHidPermissionRequested, this.handleWebHidPermissionRequested.bind(this));
+    implementation.on(HeadsetEvents.integrationStatusChanged, this.handleIntegrationStatusChanged.bind(this));
   }
 
   private clearSelectedImplementation (clearReason?: UpdateReasons): void {
+    this.implementationTransitionGeneration++;
+
     if (!this.selectedImplementation) {
       return;
     }
@@ -353,7 +384,7 @@ export default class HeadsetService {
     this.selectedImplementation.disconnect(clearReason);
     this._headsetEvents$.next({ event: HeadsetEvents.implementationChanged, payload: null });
     this.selectedImplementation = null;
-    this.handleDeviceConnectionStatusChanged();
+    this.publishConnectionStatus();
   }
 
   private setRemoveTimer (conversationId) {
@@ -368,7 +399,7 @@ export default class HeadsetService {
   }
 
   private handleDeviceAnsweredCall (event: VendorEvent<EventInfoWithConversationId>): void {
-    if (event.vendor !== this.selectedImplementation) {
+    if (!this.isEventFromSelectedImplementation(event)) {
       return;
     }
 
@@ -384,7 +415,7 @@ export default class HeadsetService {
   }
 
   private handleDeviceRejectedCall (event: VendorEvent<EventInfoWithConversationId>): void {
-    if (event.vendor !== this.selectedImplementation) {
+    if (!this.isEventFromSelectedImplementation(event)) {
       return;
     }
 
@@ -402,6 +433,10 @@ export default class HeadsetService {
   }
 
   private handleDeviceEndedCall (event: VendorEvent<EventInfoWithConversationId>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.info('Headset: device ended the call');
 
     const expectedStatePostAction: Partial<HeadsetState> = {
@@ -419,6 +454,10 @@ export default class HeadsetService {
   }
 
   private handleDeviceMuteStatusChanged (event: VendorEvent<MutedEventInfo>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.info('Headset: device mute status changed: ', event.body.isMuted);
     if (Object.values(this.headsetConversationStates).some(headsetState => headsetState.muted !== event.body.isMuted)) {
       Object.values(this.headsetConversationStates).forEach(headsetState => headsetState.muted = event.body.isMuted);
@@ -427,6 +466,10 @@ export default class HeadsetService {
   }
 
   private handleDeviceHoldStatusChanged (event: VendorEvent<HoldEventInfo>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.info('Headset: device hold status changed', event.body.holdRequested);
 
     const expectedStatePostAction: Partial<HeadsetState> = {
@@ -438,19 +481,47 @@ export default class HeadsetService {
     this._headsetEvents$.next({ event: HeadsetEvents.deviceHoldStatusChanged, payload: { ...event.body } });
   }
 
-  private handleDeviceConnectionStatusChanged (): void {
+  private handleDeviceConnectionStatusChanged (event: VendorEvent<any>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
+    this.publishConnectionStatus();
+  }
+
+  private publishConnectionStatus (): void {
     this._headsetEvents$.next({ event: HeadsetEvents.deviceConnectionStatusChanged, payload: this.connectionStatus() });
   }
 
   private handleWebHidPermissionRequested (event: VendorEvent<WebHidPermissionRequest>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
     this.logger.debug('Requesting Webhid Permissions');
     this._headsetEvents$.next({ event: HeadsetEvents.webHidPermissionRequested, payload: { ...event.body } });
+  }
+
+  private handleIntegrationStatusChanged (event: VendorEvent<HeadsetIntegrationStatus>): void {
+    if (!this.isEventFromSelectedImplementation(event)) {
+      return;
+    }
+
+    this._headsetEvents$.next({ event: HeadsetEvents.integrationStatusChanged, payload: { ...event.body } });
   }
 
   /* This function has no functional purpose in a real life example
    * It is here to help log all events in the call process at least for Plantronics
    */
   private handleDeviceLogs (eventInfo: VendorEvent<any>): void {
+    if (!this.isEventFromSelectedImplementation(eventInfo)) {
+      return;
+    }
+
     this._headsetEvents$.next({ event: HeadsetEvents.loggableEvent, payload: { ...eventInfo.body } });
+  }
+
+  private isEventFromSelectedImplementation (event: VendorEvent<any>): boolean {
+    return event.vendor === this.selectedImplementation;
   }
 }

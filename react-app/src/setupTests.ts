@@ -4,5 +4,8 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
-// Polyfill structuredClone for jsdom environment (not implemented in jsdom)
-(global as any).structuredClone = (global as any).structuredClone ?? ((val) => JSON.parse(JSON.stringify(val)));
+// jsdom used by this historical React test harness does not expose Node's native
+// structuredClone, while the locked Jabra SDK expects it during module startup.
+if (!global.structuredClone) {
+  global.structuredClone = (value) => JSON.parse(JSON.stringify(value));
+}

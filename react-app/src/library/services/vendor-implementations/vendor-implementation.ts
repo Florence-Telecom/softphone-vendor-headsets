@@ -1,7 +1,7 @@
 import DeviceInfo from '../../types/device-info';
 import StrictEventEmitter from 'strict-event-emitter-types';
 import { EventEmitter } from 'events';
-import { EmittedHeadsetEvents, EventInfo, EventInfoWithConversationId, HoldEventInfo, MutedEventInfo } from '../../types/emitted-headset-events';
+import { EmittedHeadsetEvents, EventInfo, EventInfoWithConversationId, HeadsetIntegrationStatus, HoldEventInfo, MutedEventInfo } from '../../types/emitted-headset-events';
 import { CallInfo } from '../..';
 import { UpdateReasons } from '../../types/headset-states';
 
@@ -19,6 +19,10 @@ export interface ImplementationConfig {
   useWebHidOnDesktopCyberAcoustics?: boolean;
   useWebHidOnDesktopAnker?: boolean;
   useNewPolyImplementation?: boolean;
+}
+
+export interface ImplementationConnectionOptions {
+  manualProviderSelection?: boolean;
 }
 
 export abstract class VendorImplementation extends (EventEmitter as { new(): StrictEventEmitter<EventEmitter, EmittedHeadsetEvents> }) {
@@ -48,6 +52,15 @@ export abstract class VendorImplementation extends (EventEmitter as { new(): Str
     throw new Error(`${this.vendorName} - isDeviceAttatched getter not implemented`);
   }
 
+  /**
+   * Vendor-neutral session snapshot for implementations that talk to a local native
+   * agent (loopback WebSocket, etc). Returns undefined for vendors that have no
+   * separate registration/login/attachment handshake to report.
+   */
+  get integrationStatus (): HeadsetIntegrationStatus | undefined {
+    return undefined;
+  }
+
   isSupported (): boolean {
     return true;
   }
@@ -59,7 +72,7 @@ export abstract class VendorImplementation extends (EventEmitter as { new(): Str
     throw new Error(`${this.vendorName} - deviceLabelMatchesVendor() not implemented`);
   }
 
-  connect (selectedMicLabel?: string): Promise<any> {
+  connect (selectedMicLabel?: string, options?: ImplementationConnectionOptions): Promise<any> {
     return Promise.reject(new Error(`${this.vendorName} - connect() not implemented`));
   }
 
@@ -149,6 +162,10 @@ export abstract class VendorImplementation extends (EventEmitter as { new(): Str
     this.isConnected = headsetState.isConnected;
     this.isConnecting = headsetState.isConnecting;
     this.emitEvent('deviceConnectionStatusChanged', { currentVendor: this, ...headsetState });
+  }
+
+  publishIntegrationStatus (status: HeadsetIntegrationStatus): void {
+    this.emitEvent('integrationStatusChanged', status);
   }
 
   /**
