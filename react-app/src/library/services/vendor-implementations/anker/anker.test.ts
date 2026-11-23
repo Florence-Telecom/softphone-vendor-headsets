@@ -156,27 +156,58 @@ describe('AnkerService', () => {
     });
   });
 
-  describe('mute button', () => {
+  describe('state echoes from the device', () => {
     beforeEach(async () => {
       await anker.connect(S330_LABEL);
     });
 
-    it('toggles mute during a call', async () => {
+    // Regression: muting from the app made the S330 echo 0x09 (Hook Switch + Phone Mute),
+    // which was handled as a call button press and hung up the call.
+    it('does not end the call when the device echoes an app mute', async () => {
+      const endedSpy = jest.spyOn(anker, 'deviceEndedCall');
+      const muteSpy = jest.spyOn(anker, 'deviceMuteChanged');
+      await anker.answerCall('conv3');
+      await anker.setMute(true);
+
+      device.press(0x09);
+
+      expect(endedSpy).not.toHaveBeenCalled();
+      expect(muteSpy).not.toHaveBeenCalled();
+      expect(anker._callState).toBe('active');
+    });
+
+    it('does not treat Hook Switch without Flash as a press', async () => {
+      const endedSpy = jest.spyOn(anker, 'deviceEndedCall');
+      await anker.answerCall('conv3');
+      device.press(0x01);
+      expect(endedSpy).not.toHaveBeenCalled();
+      expect(anker._callState).toBe('active');
+    });
+
+    it('syncs a mute state change reported by the device', async () => {
       const muteSpy = jest.spyOn(anker, 'deviceMuteChanged');
       await anker.answerCall('conv3');
 
-      device.press(0x08);
+      device.press(0x09);
       expect(muteSpy).toHaveBeenLastCalledWith({ isMuted: true, name: 'CallMuted', conversationId: 'conv3' });
-      expect(lastReport(device, 4)).toEqual([1]);
 
-      device.press(0x08);
+      device.press(0x01);
       expect(muteSpy).toHaveBeenLastCalledWith({ isMuted: false, name: 'CallUnmuted', conversationId: 'conv3' });
+      expect(muteSpy).toHaveBeenCalledTimes(2);
     });
 
-    it('is ignored outside a call', () => {
+    it('ignores mute state outside a call', () => {
       const muteSpy = jest.spyOn(anker, 'deviceMuteChanged');
-      device.press(0x08);
+      device.press(0x09);
       expect(muteSpy).not.toHaveBeenCalled();
+    });
+
+    it('still ends the call on a real button press while muted', async () => {
+      const endedSpy = jest.spyOn(anker, 'deviceEndedCall');
+      await anker.answerCall('conv3');
+      await anker.setMute(true);
+      device.press(0x03);
+      expect(endedSpy).toHaveBeenCalledWith({ name: 'CallOnHook', conversationId: 'conv3' });
     });
   });
 
