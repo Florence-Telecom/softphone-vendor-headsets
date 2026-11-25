@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [STREAM-1795](https://inindca.atlassian.net/browse/STREAM-1795) - Added in new implementation for Poly HP devices that use WebHID as opposed to secondary application
 * [no-jira] Added WebHID support for Anker PowerConf speakerphones (S330). The call button is stateless, so a press answers a ringing call or ends the active one.
 
+# [3.0.3-florence.3]
+## Fixed
+* EPOS UI 20 BL busylight: pick the HID interface that declares the LED output report
+  instead of the first one WebHID lists, and support devices without numbered reports.
+  An interface that cannot carry the LED packet is refused on connect.
+* Busylight write failures (including blink/re-send timers) are reported through
+  `onWriteError`/`onWriteRecovered` instead of being swallowed.
+## Added
+* Busy/held colors are re-sent every `BUSYLIGHT_REASSERT_INTERVAL_MS` (2 s) so another
+  writer such as EPOS Connect cannot keep its own color during a call.
+* `EposBusylightController.describeDevice()` / `deviceSummary` for diagnostics.
+* `tools/fake-ui20-busylight.py`: a Linux uhid emulator of the UI 20 BL for testing the
+  WebHID path in Chrome without hardware.
+
 # [3.0.3-florence.2]
 ## Fixed
 * Anker: only treat Hook Switch + Flash as a call-button press. Device state echoes that

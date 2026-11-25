@@ -13,11 +13,13 @@ export {
   EPOS_BUSYLIGHT_VENDOR_ID,
   EPOS_BUSYLIGHT_PRODUCT_ID,
   DEFAULT_BUSYLIGHT_COLORS,
+  BUSYLIGHT_REASSERT_INTERVAL_MS,
 } from './services/vendor-implementations/sennheiser/epos-busylight';
 export type {
   BusylightPhase,
   BusylightColor,
   BusylightColorScheme,
   EposHidDevice,
+  EposBusylightControllerOptions,
 } from './services/vendor-implementations/sennheiser/epos-busylight';
 export default HeadsetService;
